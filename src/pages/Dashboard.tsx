@@ -7,12 +7,23 @@ import { Features } from "@/components/Features";
 import { FileUpload } from "@/components/FileUpload";
 import { FileGallery } from "@/components/FileGallery";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import type { User } from "@/types";
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("gallery");
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -21,11 +32,8 @@ const Dashboard = () => {
 
         if (session && session.user) {
           setUser(session.user);
-        } else {
-          navigate('/auth');
         }
       } catch (err) {
-        navigate('/auth');
       } finally {
         setLoading(false);
       }
@@ -40,6 +48,19 @@ const Dashboard = () => {
 
   const scrollToFeatures = () => {
     document.getElementById("features")?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const handleUploadClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (!user) {
+      e.preventDefault();
+      setShowLoginDialog(true);
+      setActiveTab("gallery");
+    }
+  };
+
+  const goToLogin = () => {
+    setShowLoginDialog(false);
+    navigate("/auth");
   };
 
   if (loading) {
@@ -72,7 +93,7 @@ const Dashboard = () => {
               </p>
             </div>
 
-            <Tabs defaultValue="gallery" className="w-full">
+            <Tabs defaultValue="gallery" value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8 bg-slate-100 p-1">
                 <TabsTrigger
                   value="gallery"
@@ -83,6 +104,7 @@ const Dashboard = () => {
                 <TabsTrigger
                   value="upload"
                   className="data-[state=active]:bg-white data-[state=active]:shadow-sm text-slate-600"
+                  onClick={handleUploadClick}
                 >
                   Upload
                 </TabsTrigger>
@@ -123,6 +145,22 @@ const Dashboard = () => {
           </p>
         </div>
       </footer>
+
+      <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Login Required</DialogTitle>
+            <DialogDescription>
+              You need to login to upload files. Please login or register to continue.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <Button onClick={goToLogin} className="w-full">
+              Go to Login
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

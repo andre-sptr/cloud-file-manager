@@ -70,7 +70,11 @@ const upload = multer({
 router.get('/', requireAuth, async (req, res) => {
   try {
     const files = await allQuery('SELECT * FROM files WHERE owner_id = ? ORDER BY created_at DESC', [req.user.id]);
-    res.json(files);
+    const filesWithUtc = files.map(file => ({
+      ...file,
+      created_at: file.created_at ? new Date(file.created_at).toISOString() : new Date().toISOString()
+    }));
+    res.json(filesWithUtc);
   } catch (error) {
     console.error('List files error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -83,7 +87,11 @@ router.get('/shared/:id', async (req, res) => {
     if (!file) {
       return res.status(404).json({ error: 'File not found' });
     }
-    res.json(file);
+    const fileWithUtc = {
+      ...file,
+      created_at: file.created_at ? new Date(file.created_at).toISOString() : new Date().toISOString()
+    };
+    res.json(fileWithUtc);
   } catch (error) {
     console.error('Get shared file error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -111,10 +119,11 @@ router.post('/upload', requireAuth, upload.array('files'), async (req, res) => {
 
       const id = path.basename(file.filename, path.extname(file.filename));
       const url = `/uploads/${req.user.id}/${file.filename}`;
+      const utcTimestamp = new Date().toISOString();
 
       await runQuery(
-        'INSERT INTO files (id, owner_id, name, type, size, url) VALUES (?, ?, ?, ?, ?, ?)',
-        [id, req.user.id, sanitizedName, file.mimetype, file.size, url]
+        'INSERT INTO files (id, owner_id, name, type, size, url, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [id, req.user.id, sanitizedName, file.mimetype, file.size, url, utcTimestamp]
       );
 
       savedFiles.push({
@@ -123,7 +132,8 @@ router.post('/upload', requireAuth, upload.array('files'), async (req, res) => {
         type: file.mimetype,
         size: file.size,
         url,
-        owner_id: req.user.id
+        owner_id: req.user.id,
+        created_at: utcTimestamp
       });
     }
 

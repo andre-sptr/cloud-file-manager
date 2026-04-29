@@ -43,7 +43,8 @@ export const FileCard = ({ file, onDelete }: FileCardProps) => {
   const IconComponent = getFileIcon();
 
   const copyShareLink = () => {
-    navigator.clipboard.writeText(file.url);
+    const fullUrl = `${window.location.origin}${file.url}`;
+    navigator.clipboard.writeText(fullUrl);
     toast.success("Share link copied to clipboard!");
   };
 
