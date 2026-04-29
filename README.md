@@ -39,7 +39,7 @@ Jalankan frontend dan backend secara terpisah di dua terminal:
 cd server
 npm install
 npm start
-# Backend akan berjalan di http://localhost:3000
+# Backend akan berjalan di http://localhost:3003
 ```
 
 **Terminal 2 (Frontend):**
@@ -54,7 +54,7 @@ npm run dev
 Buat file `.env` di folder `server/` untuk konfigurasi khusus:
 
 ```env
-PORT=3000
+PORT=3003
 JWT_SECRET=kode_rahasia_anda
 ```
 

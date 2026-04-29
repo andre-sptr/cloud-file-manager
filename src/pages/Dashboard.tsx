@@ -18,14 +18,12 @@ const Dashboard = () => {
       try {
         const { data: { session } } = await api.auth.getSession();
 
-        if (!session || !session.user) {
-          navigate("/auth");
-          return;
+        if (session && session.user) {
+          setUser(session.user);
         }
-
-        setUser(session.user);
+        // Jika belum login, tetap tampilkan halaman publik (tidak redirect)
       } catch (err) {
-        navigate("/auth");
+        // Error, tetap tampilkan halaman publik
       } finally {
         setLoading(false);
       }
@@ -44,14 +42,14 @@ const Dashboard = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-white">
       <Navbar user={user} />
       <Hero onUploadClick={scrollToUpload} onLearnMoreClick={scrollToFeatures} />
 
@@ -59,30 +57,30 @@ const Dashboard = () => {
 
       <section
         id="dashboard"
-        className="py-24 bg-muted/30"
+        className="py-24 bg-slate-50"
       >
         <div className="container mx-auto px-4">
           <div className="max-w-6xl mx-auto">
             <div className="text-center mb-12 animate-in fade-in slide-in-from-bottom-8 duration-500">
-              <h2 className="text-4xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
+              <h2 className="text-4xl font-bold mb-4 text-slate-800">
                 VPS File Manager
               </h2>
-              <p className="text-xl text-muted-foreground">
+              <p className="text-xl text-slate-600">
                 Upload, manage, and share your files securely on your server
               </p>
             </div>
 
             <Tabs defaultValue="gallery" className="w-full">
-              <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8 bg-muted p-1">
+              <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8 bg-slate-100 p-1">
                 <TabsTrigger
                   value="gallery"
-                  className="data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                  className="data-[state=active]:bg-white data-[state=active]:shadow-sm text-slate-600"
                 >
                   Gallery
                 </TabsTrigger>
                 <TabsTrigger
                   value="upload"
-                  className="data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                  className="data-[state=active]:bg-white data-[state=active]:shadow-sm text-slate-600"
                 >
                   Upload
                 </TabsTrigger>
@@ -109,14 +107,14 @@ const Dashboard = () => {
         </div>
       </section>
 
-      <footer className="border-t py-6 bg-background">
+      <footer className="border-t py-6 bg-white">
         <div className="container mx-auto px-4 text-center">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-slate-500">
             <a
-              href="https://flamyheart.site"
+              href="https://andresptr.site"
               target="_blank"
               rel="noopener noreferrer"
-              className="font-medium text-primary hover:underline underline-offset-4"
+              className="font-medium text-blue-600 hover:underline underline-offset-4"
             >
               &copy; {new Date().getFullYear()} Andre Saputra
             </a>

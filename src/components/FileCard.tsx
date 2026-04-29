@@ -75,8 +75,8 @@ export const FileCard = ({ file, onDelete }: FileCardProps) => {
   const isVideo = file.type.startsWith("video/");
 
   return (
-    <Card className="group overflow-hidden hover:shadow-xl transition-all duration-300 hover:border-primary/50 bg-card">
-      <div className="relative aspect-video bg-muted flex items-center justify-center overflow-hidden">
+    <Card className="group overflow-hidden hover:shadow-xl transition-all duration-300 bg-white border-slate-200">
+      <div className="relative aspect-video bg-slate-100 flex items-center justify-center overflow-hidden">
         {isImage && !imageError ? (
           <>
             <img
@@ -88,7 +88,7 @@ export const FileCard = ({ file, onDelete }: FileCardProps) => {
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300" />
           </>
         ) : isVideo ? (
-          <div className="relative w-full h-full bg-muted flex items-center justify-center">
+          <div className="relative w-full h-full bg-slate-200 flex items-center justify-center">
             <div className="absolute inset-0 bg-black/40 group-hover:bg-black/30 transition-colors" />
             <div className="relative z-10 w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
               <Play className="w-8 h-8 text-white ml-1" fill="currentColor" />
@@ -100,16 +100,16 @@ export const FileCard = ({ file, onDelete }: FileCardProps) => {
             </div>
           </div>
         ) : (
-          <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-            <IconComponent className="w-10 h-10 text-primary" />
+          <div className="w-20 h-20 rounded-2xl bg-blue-100 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+            <IconComponent className="w-10 h-10 text-blue-600" />
           </div>
         )}
       </div>
 
       <div className="p-4 space-y-4">
         <div>
-          <h3 className="font-semibold truncate mb-1 text-card-foreground">{file.name}</h3>
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <h3 className="font-semibold truncate mb-1 text-slate-800">{file.name}</h3>
+          <div className="flex items-center justify-between text-sm text-slate-500">
             <span>{formatSize(file.size)}</span>
             <span>
               {formatDistanceToNow(new Date(file.created_at), { addSuffix: true })}
@@ -121,13 +121,13 @@ export const FileCard = ({ file, onDelete }: FileCardProps) => {
           <Button
             variant="outline"
             size="sm"
-            className="flex-1"
+            className="flex-1 border-slate-300 text-slate-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700"
             onClick={downloadFile}
           >
             <Download className="w-4 h-4 mr-1" />
             Download
           </Button>
-          <Button variant="outline" size="sm" onClick={copyShareLink}>
+          <Button variant="outline" size="sm" onClick={copyShareLink} className="border-slate-300 text-slate-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700">
             <Share2 className="w-4 h-4" />
           </Button>
           <AlertDialog>
@@ -135,18 +135,18 @@ export const FileCard = ({ file, onDelete }: FileCardProps) => {
               <Button
                 variant="outline"
                 size="sm"
-                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                className="text-red-600 hover:text-red-700 hover:bg-red-50 border-slate-300"
                 disabled={isDeleting}
               >
                 <Trash2 className="w-4 h-4" />
               </Button>
             </AlertDialogTrigger>
-            <AlertDialogContent className="bg-card border-border">
+            <AlertDialogContent className="bg-white border-slate-200">
               <AlertDialogHeader>
                 <AlertDialogTitle>Delete File</AlertDialogTitle>
                 <AlertDialogDescription>
                   Are you sure you want to delete{" "}
-                  <span className="font-semibold text-foreground">
+                  <span className="font-semibold text-slate-800">
                     {file.name}
                   </span>
                   ? This action cannot be undone.
@@ -156,7 +156,7 @@ export const FileCard = ({ file, onDelete }: FileCardProps) => {
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction
                   onClick={handleDelete}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  className="bg-red-600 text-white hover:bg-red-700"
                 >
                   {isDeleting ? "Deleting..." : "Delete"}
                 </AlertDialogAction>

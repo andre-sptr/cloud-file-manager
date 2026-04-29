@@ -113,7 +113,7 @@ nano .env
 Isi dengan:
 
 ```env
-PORT=3000
+PORT=3003
 JWT_SECRET=ubah-ini-dengan-kode-rahasia-yang-panjang-dan-aman
 # Contoh: JWT_SECRET=kode_rahasia_very_secure_123456789
 ```
@@ -155,7 +155,7 @@ pm2 logs file-manager-backend
 
 ## 🌐 Bagian 6: Konfigurasi Website di aPanel
 
-Sekarang backend sudah berjalan di port 3000. Selanjutnya konfigurasi agar website bisa diakses.
+Sekarang backend sudah berjalan di port 3003. Selanjutnya konfigurasi agar website bisa diakses.
 
 ### Option A: Static Files Saja (Tanpa Nginx Reverse Proxy)
 
@@ -185,7 +185,7 @@ location / {
 }
 
 location /api/ {
-    proxy_pass http://127.0.0.1:3000;
+    proxy_pass http://127.0.0.1:3003;
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection 'upgrade';
@@ -195,7 +195,7 @@ location /api/ {
 }
 
 location /uploads/ {
-    proxy_pass http://127.0.0.1:3000;
+    proxy_pass http://127.0.0.1:3003;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
 }
@@ -291,7 +291,7 @@ pm2 status
 
 ## 🔐 Keamanan Tambahan
 
-1. **Firewall**: Pastikan port 3000 tidak exposed ke Publik
+1. **Firewall**: Pastikan port 3003 tidak exposed ke Publik
    - Di aPanel, **Security** → **Firewall**
    - Hanya izinkan port 80, 443, 8888
 
