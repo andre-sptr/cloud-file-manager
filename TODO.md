@@ -1,8 +1,15 @@
-# Onboarding Documentation Update TODO
+# Task: Update .gitignore for server/.env & remove from GitHub
 
-- [x] Update README.md with Usage Guide, badges, screenshots, contributing info
-- [x] Update DEPLOYMENT.md with fixes, optimizations, Docker option
-- [x] Verify changes (read files, local test if needed)
-- [x] Complete task
+## Steps:
+- [x] Update .gitignore to add `server/.env`
+- [x] Provide Git commands to remove server/.env from tracking if committed  
+- [x] Verify changes
+- [x] Mark complete
 
-**All tasks completed!** Onboarding materials (README.md and DEPLOYMENT.md) enhanced for better project setup, usage, and deployment guides.
+**Completed!** Run these commands to finalize:
+
+```bash
+git rm --cached server/.env 2>/dev/null || true
+git add .gitignore
+git commit -m "chore: ignore server/.env & remove from tracking"
+git push origin main --force-with-lease
