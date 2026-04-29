@@ -2,6 +2,11 @@ import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
 dotenv.config();
 
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required');
+}
+
 export const requireAuth = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -10,8 +15,8 @@ export const requireAuth = (req, res, next) => {
 
   const token = authHeader.split(' ')[1];
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
-    req.user = decoded; // { id, email }
+    const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
+    req.user = decoded;
     next();
   } catch (err) {
     return res.status(401).json({ error: 'Unauthorized: Invalid token' });

@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useDropzone } from "react-dropzone";
 import { Upload, X, File, Image, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,10 +14,19 @@ export const FileUpload = ({ onUploadComplete }: FileUploadProps) => {
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+      }
+    };
+  }, []);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const validFiles = acceptedFiles.filter(file => {
-      const isValid = file.size <= 15 * 1024 * 1024; // 15MB max
+      const isValid = file.size <= 15 * 1024 * 1024; 
       if (!isValid) {
         toast.error(`${file.name} exceeds 15MB limit`);
       }
@@ -61,8 +70,7 @@ export const FileUpload = ({ onUploadComplete }: FileUploadProps) => {
         return;
       }
 
-      // Simulate progress for better UX since fetch doesn't natively support upload progress easily without XMLHttpRequest
-      const progressInterval = setInterval(() => {
+      progressIntervalRef.current = setInterval(() => {
         setUploadProgress(prev => {
           if (prev >= 90) return prev;
           return prev + 10;
@@ -71,7 +79,8 @@ export const FileUpload = ({ onUploadComplete }: FileUploadProps) => {
 
       await api.files.upload(files);
 
-      clearInterval(progressInterval);
+      clearInterval(progressIntervalRef.current);
+      progressIntervalRef.current = null;
       setUploadProgress(100);
 
       setTimeout(() => {
@@ -79,9 +88,13 @@ export const FileUpload = ({ onUploadComplete }: FileUploadProps) => {
         setFiles([]);
         onUploadComplete();
       }, 500);
-      
+
     } catch (error: any) {
       console.error('Upload error:', error);
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
       toast.error(error.message || "Failed to upload files");
     } finally {
       setTimeout(() => {

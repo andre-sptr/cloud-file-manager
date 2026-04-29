@@ -1,9 +1,8 @@
-// Client-side API wrapper for custom backend
-
-const API_BASE = '/api';
+import { API_BASE, STORAGE_KEYS } from './constants';
+import type { User, LoginResponse, FileData, AuthSession, ApiResponse } from '@/types';
 
 const getAuthHeaders = () => {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
   return token ? { 'Authorization': `Bearer ${token}` } : {};
 };
 
@@ -21,7 +20,7 @@ export const api = {
       }
       return res.json();
     },
-    signInWithPassword: async (email, password) => {
+    signInWithPassword: async (email: string, password: string): Promise<LoginResponse> => {
       const res = await fetch(`${API_BASE}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -32,14 +31,14 @@ export const api = {
         throw new Error(error.error || 'Failed to login');
       }
       const data = await res.json();
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
+      localStorage.setItem(STORAGE_KEYS.TOKEN, data.token);
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(data.user));
       return data;
     },
-    getSession: async () => {
-      const token = localStorage.getItem('token');
+    getSession: async (): Promise<AuthSession> => {
+      const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
       if (!token) return { data: { session: null } };
-      
+
       try {
         const res = await fetch(`${API_BASE}/auth/session`, {
           headers: getAuthHeaders()
@@ -48,22 +47,22 @@ export const api = {
         const data = await res.json();
         return { data: { session: { user: data.user } } };
       } catch (err) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        localStorage.removeItem(STORAGE_KEYS.TOKEN);
+        localStorage.removeItem(STORAGE_KEYS.USER);
         return { data: { session: null } };
       }
     },
     getUser: async () => {
-      const userStr = localStorage.getItem('user');
+      const userStr = localStorage.getItem(STORAGE_KEYS.USER);
       if (userStr) {
-        return { data: { user: JSON.parse(userStr) } };
+        return { data: { user: JSON.parse(userStr) as User } };
       }
       const session = await api.auth.getSession();
       return { data: { user: session.data.session?.user || null } };
     },
     signOut: async () => {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      localStorage.removeItem(STORAGE_KEYS.TOKEN);
+      localStorage.removeItem(STORAGE_KEYS.USER);
       return { error: null };
     }
   },
@@ -88,7 +87,7 @@ export const api = {
       
       const res = await fetch(`${API_BASE}/files/upload`, {
         method: 'POST',
-        headers: getAuthHeaders(), // Don't set Content-Type, let browser set it for FormData
+        headers: getAuthHeaders(), 
         body: formData
       });
       

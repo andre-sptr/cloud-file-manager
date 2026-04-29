@@ -6,7 +6,6 @@ import fs from 'fs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Pastikan folder data ada
 const dataDir = join(__dirname, 'data');
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir);
@@ -18,7 +17,6 @@ const db = new sqlite3.Database(dbFile);
 export const initDb = () => {
   return new Promise((resolve, reject) => {
     db.serialize(() => {
-      // Tabel Users
       db.run(`
         CREATE TABLE IF NOT EXISTS users (
           id TEXT PRIMARY KEY,
@@ -30,7 +28,6 @@ export const initDb = () => {
         if (err) reject(err);
       });
 
-      // Tabel Files
       db.run(`
         CREATE TABLE IF NOT EXISTS files (
           id TEXT PRIMARY KEY,

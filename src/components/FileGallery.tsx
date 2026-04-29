@@ -30,7 +30,6 @@ export const FileGallery = () => {
       setIsLoggedIn(true);
     } catch (error: any) {
       console.error("Error loading files:", error);
-      // User belum login - tampilkan pesan
       setIsLoggedIn(false);
       setFiles([]);
     } finally {

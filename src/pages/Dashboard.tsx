@@ -7,10 +7,11 @@ import { Features } from "@/components/Features";
 import { FileUpload } from "@/components/FileUpload";
 import { FileGallery } from "@/components/FileGallery";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { User } from "@/types";
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -20,17 +21,18 @@ const Dashboard = () => {
 
         if (session && session.user) {
           setUser(session.user);
+        } else {
+          navigate('/auth');
         }
-        // Jika belum login, tetap tampilkan halaman publik (tidak redirect)
       } catch (err) {
-        // Error, tetap tampilkan halaman publik
+        navigate('/auth');
       } finally {
         setLoading(false);
       }
     };
 
     checkAuth();
-  }, [navigate]);
+  }, []);
 
   const scrollToUpload = () => {
     document.getElementById("dashboard")?.scrollIntoView({ behavior: "smooth" });

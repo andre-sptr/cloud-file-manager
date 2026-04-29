@@ -12,13 +12,39 @@ const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 
-// Ensure uploads directory exists
+const MAX_NAME_LENGTH = 255;
+const MAX_FILES_UPLOAD = 10;
+
 const uploadsDir = path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir);
 }
 
-// Configure multer storage
+const ALLOWED_MIME_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'application/pdf',
+  'text/plain',
+  'text/csv',
+  'application/json',
+  'application/zip',
+  'application/x-zip-compressed',
+  'audio/mpeg',
+  'audio/wav',
+  'video/mp4',
+  'video/webm'
+];
+
+const fileFilter = (req, file, cb) => {
+  if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error(`File type not allowed. Allowed types: ${ALLOWED_MIME_TYPES.join(', ')}`), false);
+  }
+};
+
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     const userDir = path.join(uploadsDir, req.user.id);
@@ -28,18 +54,19 @@ const storage = multer.diskStorage({
     cb(null, userDir);
   },
   filename: function (req, file, cb) {
-    const ext = path.extname(file.originalname);
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const sanitizedName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const ext = path.extname(sanitizedName);
+    const uniqueSuffix = crypto.randomUUID();
     cb(null, uniqueSuffix + ext);
   }
 });
 
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 15 * 1024 * 1024 } // 15MB limit
+  fileFilter: fileFilter,
+  limits: { fileSize: 15 * 1024 * 1024 }
 });
 
-// List files for the logged-in user
 router.get('/', requireAuth, async (req, res) => {
   try {
     const files = await allQuery('SELECT * FROM files WHERE owner_id = ? ORDER BY created_at DESC', [req.user.id]);
@@ -50,7 +77,6 @@ router.get('/', requireAuth, async (req, res) => {
   }
 });
 
-// Get shared file metadata (public)
 router.get('/shared/:id', async (req, res) => {
   try {
     const file = await getQuery('SELECT * FROM files WHERE id = ?', [req.params.id]);
@@ -64,7 +90,6 @@ router.get('/shared/:id', async (req, res) => {
   }
 });
 
-// Upload file(s)
 router.post('/upload', requireAuth, upload.array('files'), async (req, res) => {
   try {
     const uploadedFiles = req.files;
@@ -72,21 +97,29 @@ router.post('/upload', requireAuth, upload.array('files'), async (req, res) => {
       return res.status(400).json({ error: 'No files uploaded' });
     }
 
+    if (uploadedFiles.length > 10) {
+      return res.status(400).json({ error: 'Maximum 10 files per upload' });
+    }
+
     const savedFiles = [];
-    
+
     for (const file of uploadedFiles) {
-      const id = crypto.randomUUID();
-      // Calculate relative URL to be served by static middleware
+      let sanitizedName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+      if (sanitizedName.length > MAX_NAME_LENGTH) {
+        sanitizedName = sanitizedName.substring(0, MAX_NAME_LENGTH);
+      }
+
+      const id = path.basename(file.filename, path.extname(file.filename));
       const url = `/uploads/${req.user.id}/${file.filename}`;
-      
+
       await runQuery(
         'INSERT INTO files (id, owner_id, name, type, size, url) VALUES (?, ?, ?, ?, ?, ?)',
-        [id, req.user.id, file.originalname, file.mimetype, file.size, url]
+        [id, req.user.id, sanitizedName, file.mimetype, file.size, url]
       );
-      
+
       savedFiles.push({
         id,
-        name: file.originalname,
+        name: sanitizedName,
         type: file.mimetype,
         size: file.size,
         url,
@@ -101,24 +134,27 @@ router.post('/upload', requireAuth, upload.array('files'), async (req, res) => {
   }
 });
 
-// Delete a file
 router.delete('/:id', requireAuth, async (req, res) => {
   try {
     const fileId = req.params.id;
-    
-    // Check if file exists and belongs to user
+
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(fileId)) {
+      return res.status(400).json({ error: 'Invalid file ID format' });
+    }
+
     const file = await getQuery('SELECT * FROM files WHERE id = ? AND owner_id = ?', [fileId, req.user.id]);
     if (!file) {
       return res.status(404).json({ error: 'File not found' });
     }
 
-    // Delete from filesystem
     const filePath = path.join(__dirname, '..', file.url);
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
+    } else {
+      console.warn(`File not found at path: ${filePath}`);
     }
 
-    // Delete from database
     await runQuery('DELETE FROM files WHERE id = ?', [fileId]);
 
     res.json({ message: 'File deleted successfully' });

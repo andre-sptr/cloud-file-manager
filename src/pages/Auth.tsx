@@ -16,7 +16,6 @@ const Auth = () => {
   const [password, setPassword] = useState("");
 
   useEffect(() => {
-    // Check if user is already logged in
     const checkAuth = async () => {
       const { data: { session } } = await api.auth.getSession();
       if (session) {
@@ -34,7 +33,6 @@ const Auth = () => {
       await api.auth.signUp(email, password);
       
       toast.success("Account created! Please login.");
-      // Switch to login tab
       const loginTab = document.querySelector('[value="login"]') as HTMLElement;
       loginTab?.click();
     } catch (error: any) {
