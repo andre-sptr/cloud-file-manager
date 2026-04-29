@@ -22,13 +22,13 @@ export const Hero = ({ onUploadClick, onLearnMoreClick }: HeroProps) => {
 
       <div className="container mx-auto px-4 relative z-10">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <div className="space-y-8 mt-8 animate-in fade-in slide-in-from-left-8 duration-700">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-100 text-blue-700 text-sm font-medium w-fit">
+          <div className="space-y-8 animate-in fade-in slide-in-from-left-8 duration-700">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-100 text-blue-700 text-sm font-medium w-fit mt-4">
               <Cloud className="w-4 h-4" />
               Secure Cloud Storage
             </div>
 
-            <h1 className="text-5xl lg:text-7xl font-bold leading-tight text-slate-900">
+            <h1 className="text-5xl lg:text-6xl font-bold leading-tight text-slate-900">
               Upload, Share, and Store
               <span className="block text-blue-600 mt-2">Your Files with Ease</span>
             </h1>
@@ -50,7 +50,7 @@ export const Hero = ({ onUploadClick, onLearnMoreClick }: HeroProps) => {
               <Button
                 size="lg"
                 variant="outline"
-                className="text-lg px-8 border-slate-300 text-slate-700 hover:bg-slate-50"
+                className="text-lg px-8 border-slate-300 text-slate-700 hover:bg-slate-50 hover:text-slate-700"
                 onClick={handleLearnMore}
               >
                 Learn More
