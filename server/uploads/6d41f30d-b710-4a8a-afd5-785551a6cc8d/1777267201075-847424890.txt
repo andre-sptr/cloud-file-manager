@@ -1,0 +1,467 @@
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <ArduinoJson.h>
+#include "HX711.h"
+
+// ==========================================
+// KONFIGURASI WIFI & API
+// ==========================================
+const char* ssid = "andre";
+const char* password = "87654321";
+const char* serverUrlGetUsers   = "http://43.157.205.187:5001/api/get-users";
+const char* serverUrlGetHarga   = "http://43.157.205.187:5001/api/get-harga";
+const char* serverUrlPost       = "http://43.157.205.187:5001/api/update-timbangan";
+const char* serverUrlGetConfig  = "http://43.157.205.187:5001/api/get-config";
+const char* serverUrlPostRaw    = "http://43.157.205.187:5001/api/set-calibration-result";
+const char* serverUrlConfirmTare= "http://43.157.205.187:5001/api/confirm-tare";
+
+// ==========================================
+// KONFIGURASI PIN & PERANGKAT
+// ==========================================
+const int PIN_BTN_NEXT    = 4;
+const int PIN_BTN_OK      = 5;
+const int PIN_BTN_REFRESH = 18;
+
+const int LOADCELL_DOUT_PIN = 32;
+const int LOADCELL_SCK_PIN  = 33;
+
+LiquidCrystal_I2C lcd(0x27, 20, 4);
+HX711 scale;
+
+float calibration_factor = 2280.0;
+
+// ==========================================
+// VARIABEL GLOBAL
+// ==========================================
+const int MAX_USERS = 10;
+String userIds[MAX_USERS];
+String userNames[MAX_USERS];
+int totalUsers       = 0;
+int currentUserIndex = 0;
+
+float hargaPerKg = 0.0;
+unsigned long lastHargaUpdate = 0;
+const unsigned long HARGA_UPDATE_INTERVAL  = 300000; // 5 menit
+const unsigned long CONFIG_SYNC_INTERVAL   = 10000;  // 10 detik (untuk polling kalibrasi)
+unsigned long lastConfigSync = 0;
+
+// Debounce
+unsigned long lastBtnNext    = 0;
+unsigned long lastBtnOk      = 0;
+unsigned long lastBtnRefresh = 0;
+const unsigned long DEBOUNCE_MS = 300;
+
+// ==========================================
+// SETUP
+// ==========================================
+void setup() {
+  Serial.begin(115200);
+
+  pinMode(PIN_BTN_NEXT,    INPUT_PULLUP);
+  pinMode(PIN_BTN_OK,      INPUT_PULLUP);
+  pinMode(PIN_BTN_REFRESH, INPUT_PULLUP);
+
+  lcd.init();
+  lcd.backlight();
+  lcd.setCursor(0, 0);
+  lcd.print("  SobatKaret IoT  ");
+  lcd.setCursor(0, 1);
+  lcd.print("  Timbangan Pintar");
+
+  scale.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
+  scale.set_scale(calibration_factor);
+
+  unsigned long waktuTunggu = millis();
+  bool hx711_siap = false;
+  while (millis() - waktuTunggu < 2000) {
+    if (scale.is_ready()) { hx711_siap = true; break; }
+    delay(100);
+  }
+
+  if (hx711_siap) {
+    scale.tare();
+    Serial.println("Timbangan berhasil di-nol-kan.");
+    lcd.setCursor(0, 2);
+    lcd.print("Timbangan: Ready  ");
+  } else {
+    Serial.println("Peringatan: HX711 tidak merespon saat setup!");
+    lcd.setCursor(0, 2);
+    lcd.print("Timbangan: Error! ");
+  }
+
+  // WiFi dengan timeout agar tidak stuck selamanya
+  WiFi.begin(ssid, password);
+  lcd.setCursor(0, 3);
+  lcd.print("Koneksi WiFi...     ");
+
+  unsigned long wifiStart = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - wifiStart < 15000) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  lcd.clear();
+  if (WiFi.status() == WL_CONNECTED) {
+    lcd.setCursor(0, 0);
+    lcd.print("WiFi Connected!");
+    lcd.setCursor(0, 1);
+    lcd.print("IP: ");
+    lcd.print(WiFi.localIP());
+    delay(2000);
+
+    ambilDataUsers();
+    ambilHargaTerkini();
+  } else {
+    lcd.setCursor(0, 0);
+    lcd.print("WiFi Gagal!");
+    lcd.setCursor(0, 1);
+    lcd.print("Lanjut tanpa WiFi");
+    delay(2000);
+  }
+}
+
+// ==========================================
+// LOOP UTAMA
+// ==========================================
+void loop() {
+  // --- Reconnect WiFi jika putus ---
+  if (WiFi.status() != WL_CONNECTED) {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("WiFi Terputus!");
+    lcd.setCursor(0, 1);
+    lcd.print("Menyambung ulang...");
+
+    WiFi.begin(ssid, password);
+    unsigned long startAttemptTime = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 10000) {
+      delay(500);
+      Serial.print(".");
+    }
+
+    if (WiFi.status() == WL_CONNECTED) {
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("WiFi Connected!");
+      delay(1000);
+    }
+  }
+
+  // --- Update harga berkala ---
+  if (millis() - lastHargaUpdate > HARGA_UPDATE_INTERVAL) {
+    ambilHargaTerkini();
+  }
+
+  // --- Polling kalibrasi & config dari server ---
+  if (millis() - lastConfigSync > CONFIG_SYNC_INTERVAL) {
+    sinkronisasiConfig();
+    lastConfigSync = millis();
+  }
+
+  // --- Tombol REFRESH dengan debounce ---
+  if (digitalRead(PIN_BTN_REFRESH) == LOW && millis() - lastBtnRefresh > DEBOUNCE_MS) {
+    lastBtnRefresh = millis();
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Refresh Data...");
+    ambilHargaTerkini();
+    ambilDataUsers();
+  }
+
+  if (totalUsers == 0) {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Belum ada akun!     ");
+    lcd.setCursor(0, 1);
+    lcd.print("Daftar via Bot:     ");
+    lcd.setCursor(0, 2);
+    lcd.print("telegram @sobatkaret");
+    delay(3000);
+    ambilDataUsers();
+    return;
+  }
+
+  // --- Tampil UI pemilihan petani ---
+  String namaTampil = "> " + userNames[currentUserIndex];
+  while (namaTampil.length() < 20) namaTampil += " ";
+
+  lcd.setCursor(0, 0);
+  lcd.print("Pilih Petani:       ");
+  lcd.setCursor(0, 1);
+  lcd.print(namaTampil);
+  lcd.setCursor(0, 2);
+  lcd.print("Harga: Rp ");
+  lcd.print(String(hargaPerKg, 0));
+  lcd.print("/kg      ");
+  lcd.setCursor(0, 3);
+  lcd.print("Next | OK | Refresh ");
+
+  // --- Tombol NEXT dengan debounce ---
+  if (digitalRead(PIN_BTN_NEXT) == LOW && millis() - lastBtnNext > DEBOUNCE_MS) {
+    lastBtnNext = millis();
+    currentUserIndex = (currentUserIndex + 1) % totalUsers;
+  }
+
+  // --- Tombol OK dengan debounce ---
+  if (digitalRead(PIN_BTN_OK) == LOW && millis() - lastBtnOk > DEBOUNCE_MS) {
+    lastBtnOk = millis();
+    prosesTimbanganDanHitung();
+  }
+}
+
+// ==========================================
+// FUNGSI PROSES TIMBANGAN & HITUNG HARGA
+// ==========================================
+void prosesTimbanganDanHitung() {
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Menimbang...        ");
+  lcd.setCursor(0, 1);
+  lcd.print("Petani: ");
+  lcd.print(userNames[currentUserIndex]);
+
+  delay(1500);
+
+  if (scale.is_ready()) {
+    long nilai_mentah = scale.read();
+    Serial.print("Nilai Mentah (Raw): ");
+    Serial.println(nilai_mentah);
+
+    float berat_real  = scale.get_units(10);
+    float totalHarga  = berat_real * hargaPerKg;
+
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("=== HASIL TIMBANG ===");
+    lcd.setCursor(0, 1);
+    lcd.print("Berat: ");
+    lcd.print(String(berat_real, 2));
+    lcd.print(" Kg    ");
+    lcd.setCursor(0, 2);
+    lcd.print("Harga: Rp ");
+    lcd.print(String(hargaPerKg, 0));
+    lcd.print("/kg");
+    lcd.setCursor(0, 3);
+    lcd.print("Total: Rp ");
+    lcd.print(formatRupiah(totalHarga));
+
+    kirimDataTimbangan(userIds[currentUserIndex], berat_real, totalHarga);
+  } else {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("ERROR!");
+    lcd.setCursor(0, 1);
+    lcd.print("Timbangan tidak");
+    lcd.setCursor(0, 2);
+    lcd.print("merespon. Cek HX711");
+    Serial.println("HX711 tidak ditemukan.");
+  }
+
+  delay(5000);
+  lcd.clear();
+}
+
+// ==========================================
+// FUNGSI AMBIL DATA USERS
+// ==========================================
+void ambilDataUsers() {
+  if (WiFi.status() != WL_CONNECTED) return;
+
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Sinkronisasi data...");
+
+  HTTPClient http;
+  http.begin(serverUrlGetUsers);
+  http.setTimeout(5000);
+  int httpResponseCode = http.GET();
+
+  if (httpResponseCode == 200) {
+    String payload = http.getString();
+    StaticJsonDocument<1024> doc;
+    DeserializationError error = deserializeJson(doc, payload);
+
+    if (!error) {
+      totalUsers = 0;
+      for (JsonObject user : doc.as<JsonArray>()) {
+        if (totalUsers < MAX_USERS) {
+          userIds[totalUsers]   = user["id"].as<String>();
+          userNames[totalUsers] = user["nama"].as<String>();
+          totalUsers++;
+        }
+      }
+      if (currentUserIndex >= totalUsers) currentUserIndex = 0;
+      Serial.println("Berhasil ambil " + String(totalUsers) + " user.");
+      lcd.setCursor(0, 1);
+      lcd.print("User: ");
+      lcd.print(totalUsers);
+      lcd.print(" akun        ");
+    }
+  } else {
+    lcd.setCursor(0, 1);
+    lcd.print("Gagal ambil data    ");
+  }
+  http.end();
+  delay(1500);
+}
+
+// ==========================================
+// FUNGSI AMBIL HARGA TERKINI
+// ==========================================
+void ambilHargaTerkini() {
+  if (WiFi.status() != WL_CONNECTED) return;
+
+  HTTPClient http;
+  http.begin(serverUrlGetHarga);
+  http.setTimeout(5000);
+  int httpResponseCode = http.GET();
+
+  if (httpResponseCode == 200) {
+    String payload = http.getString();
+    StaticJsonDocument<256> doc;
+    DeserializationError error = deserializeJson(doc, payload);
+
+    if (!error) {
+      hargaPerKg       = doc["harga_per_kg"].as<float>();
+      lastHargaUpdate  = millis();
+
+      Serial.print("Harga update: Rp ");
+      Serial.println(hargaPerKg);
+
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("Harga Diperbarui!");
+      lcd.setCursor(0, 1);
+      lcd.print("Rp ");
+      lcd.print(String(hargaPerKg, 0));
+      lcd.print(" per kg");
+      delay(2000);
+    }
+  } else {
+    Serial.println("Gagal ambil harga, gunakan harga lama.");
+  }
+  http.end();
+}
+
+// ==========================================
+// FUNGSI KIRIM DATA TIMBANGAN
+// ==========================================
+void kirimDataTimbangan(String id, float berat, float totalHarga) {
+  if (WiFi.status() != WL_CONNECTED) return;
+
+  HTTPClient http;
+  http.begin(serverUrlPost);
+  http.setTimeout(5000);
+  http.addHeader("Content-Type", "application/json");
+
+  String payload = "{\"user_id\":\"" + id + "\", \"berat\":" + String(berat, 2) +
+                   ", \"harga_per_kg\":" + String(hargaPerKg, 0) +
+                   ", \"total_harga\":" + String(totalHarga, 0) + "}";
+
+  int httpResponseCode = http.POST(payload);
+
+  if (httpResponseCode > 0) {
+    Serial.println("Data berhasil dikirim!");
+  } else {
+    Serial.println("Gagal kirim data! Kode: " + String(httpResponseCode));
+  }
+  http.end();
+}
+
+// ==========================================
+// FUNGSI SINKRONISASI CONFIG & KALIBRASI
+// (Sebelumnya tidak pernah dipanggil — kini dipanggil di loop)
+// ==========================================
+void sinkronisasiConfig() {
+  if (WiFi.status() != WL_CONNECTED) return;
+
+  HTTPClient http;
+  http.begin(serverUrlGetConfig);
+  http.setTimeout(5000);
+
+  int httpResponseCode = http.GET();
+  if (httpResponseCode == 200) {
+    String payload = http.getString();
+    StaticJsonDocument<512> doc;
+    DeserializationError error = deserializeJson(doc, payload);
+    if (error) { http.end(); return; }
+
+    hargaPerKg = doc["harga_per_kg"].as<float>();
+
+    float factorBaru = doc["calibration_factor"].as<float>();
+    if (factorBaru != 0) {
+      calibration_factor = factorBaru;
+      scale.set_scale(calibration_factor);
+    }
+
+    String action = doc["action"].as<String>();
+
+    if (action == "tare") {
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("Action: TARE...     ");
+      scale.tare();
+      kirimKonfirmasi("/api/confirm-tare");
+      lcd.setCursor(0, 1);
+      lcd.print("Tare selesai!       ");
+      delay(1500);
+      lcd.clear();
+    }
+    else if (action == "get_raw") {
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("Action: CALIB...    ");
+      long raw = scale.get_value(10);
+      kirimRawValue(raw);
+      lcd.setCursor(0, 1);
+      lcd.print("Kalibrasi selesai!  ");
+      delay(1500);
+      lcd.clear();
+    }
+
+    lastHargaUpdate = millis();
+  }
+  http.end();
+}
+
+// ==========================================
+// FUNGSI KIRIM RAW VALUE KALIBRASI
+// ==========================================
+void kirimRawValue(long raw) {
+  if (WiFi.status() != WL_CONNECTED) return;
+  HTTPClient http;
+  http.begin(serverUrlPostRaw);
+  http.setTimeout(5000);
+  http.addHeader("Content-Type", "application/json");
+  String msg = "{\"raw_value\":" + String(raw) + "}";
+  http.POST(msg);
+  http.end();
+}
+
+// ==========================================
+// FUNGSI KIRIM KONFIRMASI TARE
+// ==========================================
+void kirimKonfirmasi(String endpoint) {
+  if (WiFi.status() != WL_CONNECTED) return;
+  HTTPClient http;
+  http.begin("http://43.157.205.187:5001" + endpoint);
+  http.setTimeout(5000);
+  http.addHeader("Content-Type", "application/json");
+  http.POST("{}");
+  http.end();
+}
+
+// ==========================================
+// FUNGSI HELPER - FORMAT RUPIAH
+// ==========================================
+String formatRupiah(float nominal) {
+  if (nominal >= 1000000) {
+    return String(nominal / 1000000.0, 1) + "jt";
+  } else if (nominal >= 1000) {
+    return String(nominal / 1000.0, 0) + "rb";
+  } else {
+    return String(nominal, 0);
+  }
+}
