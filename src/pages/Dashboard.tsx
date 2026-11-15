@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import type { User } from "@/types";
+import { scrollToSection } from "@/lib/scroll";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -58,22 +59,17 @@ const Dashboard = () => {
     };
   }, []);
 
-  const getScrollBehavior = (): ScrollBehavior =>
-    typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
-      ? "auto"
-      : "smooth";
-
   const scrollToUpload = () => {
     if (!user) {
       setShowLoginDialog(true);
       return;
     }
     setActiveTab("upload");
-    document.getElementById("dashboard")?.scrollIntoView({ behavior: getScrollBehavior() });
+    scrollToSection("dashboard");
   };
 
   const scrollToFeatures = () => {
-    document.getElementById("features")?.scrollIntoView({ behavior: getScrollBehavior() });
+    scrollToSection("features");
   };
 
   const handleTabChange = (nextTab: string) => {
@@ -121,32 +117,40 @@ const Dashboard = () => {
             aria-labelledby="dashboard-heading"
             className="py-14 sm:py-20"
           >
-            <div className="container mx-auto px-4">
-              <div className="max-w-6xl mx-auto">
-                <div className="text-center mb-10 sm:mb-12">
-                  <h2 id="dashboard-heading" className="text-3xl sm:text-4xl font-bold mb-3 text-slate-900">
-                    VPS File Manager
-                  </h2>
-                  <p className="text-base sm:text-lg text-slate-600">
-                    Upload, manage, and share your files securely on your server
-                  </p>
-                </div>
-
+            <div className="container mx-auto px-4 max-w-6xl">
+              <div className="border-t border-slate-300/80 pt-12 sm:pt-16">
                 <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-                  <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8 bg-white border border-slate-500 p-1 min-h-[48px]">
-                    <TabsTrigger
-                      value="gallery"
-                      className="min-h-[38px] text-slate-700 data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-sm"
-                    >
-                      Gallery
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="upload"
-                      className="min-h-[38px] text-slate-700 data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-sm"
-                    >
-                      Upload
-                    </TabsTrigger>
-                  </TabsList>
+                  <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8 sm:mb-10">
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-600 mb-3">
+                        02 / Workspace
+                      </p>
+                      <h2
+                        id="dashboard-heading"
+                        className="text-2xl sm:text-3xl font-bold tracking-[-0.025em] text-slate-950"
+                      >
+                        VPS File Manager
+                      </h2>
+                      <p className="mt-2 text-sm sm:text-base text-slate-600">
+                        Upload, manage, and share your files securely on your server.
+                      </p>
+                    </div>
+
+                    <TabsList className="grid w-full md:w-auto md:min-w-[260px] grid-cols-2 bg-white border border-slate-500 p-1 min-h-[48px] rounded-md shrink-0">
+                      <TabsTrigger
+                        value="gallery"
+                        className="min-h-[38px] text-slate-700 data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-none"
+                      >
+                        Gallery
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="upload"
+                        className="min-h-[38px] text-slate-700 data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-none"
+                      >
+                        Upload
+                      </TabsTrigger>
+                    </TabsList>
+                  </div>
 
                   <TabsContent value="gallery">
                     <FileGallery user={user} />
@@ -168,18 +172,17 @@ const Dashboard = () => {
         </main>
       </div>
 
-      <footer className="border-t border-slate-200 py-6 bg-white">
-        <div className="container mx-auto px-4 text-center">
-          <p className="text-sm text-slate-600">
-            <a
-              href="https://andresptr.site"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium text-blue-600 hover:underline underline-offset-4 inline-flex items-center min-h-[44px] px-2"
-            >
-              &copy; {new Date().getFullYear()} Andre Saputra
-            </a>
-          </p>
+      <footer className="border-t border-slate-200 py-5 bg-white">
+        <div className="container mx-auto px-4 max-w-6xl flex flex-col sm:flex-row items-center justify-between gap-2 text-sm text-slate-600">
+          <span className="font-medium text-slate-700">VPS File Hub</span>
+          <a
+            href="https://andresptr.site"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-blue-700 hover:underline underline-offset-4 inline-flex items-center min-h-[44px] px-1"
+          >
+            &copy; {new Date().getFullYear()} Andre Saputra
+          </a>
         </div>
       </footer>
 
