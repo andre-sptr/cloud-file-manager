@@ -58,17 +58,22 @@ const Dashboard = () => {
     };
   }, []);
 
+  const getScrollBehavior = (): ScrollBehavior =>
+    typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      ? "auto"
+      : "smooth";
+
   const scrollToUpload = () => {
     if (!user) {
       setShowLoginDialog(true);
       return;
     }
     setActiveTab("upload");
-    document.getElementById("dashboard")?.scrollIntoView({ behavior: "smooth" });
+    document.getElementById("dashboard")?.scrollIntoView({ behavior: getScrollBehavior() });
   };
 
   const scrollToFeatures = () => {
-    document.getElementById("features")?.scrollIntoView({ behavior: "smooth" });
+    document.getElementById("features")?.scrollIntoView({ behavior: getScrollBehavior() });
   };
 
   const handleTabChange = (nextTab: string) => {
@@ -86,76 +91,91 @@ const Dashboard = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
+      <main
+        className="min-h-screen flex flex-col items-center justify-center gap-3 app-page-canvas"
+        role="status"
+      >
+        <div
+          className="app-spinner rounded-full h-10 w-10 border-2 border-slate-200 border-t-blue-600"
+          aria-hidden="true"
+        />
+        <p className="text-sm font-medium text-slate-600">Checking session...</p>
+      </main>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <Navbar user={user} />
-      <Hero onUploadClick={scrollToUpload} onLearnMoreClick={scrollToFeatures} />
+    <div className="min-h-screen flex flex-col bg-white">
+      <div className="flex-1 app-page-canvas flex flex-col">
+        <a href="#main-content" className="skip-link">
+          Skip to main content
+        </a>
+        <Navbar user={user} />
+        <main id="main-content" tabIndex={-1} className="flex-1">
+          <Hero onUploadClick={scrollToUpload} onFeaturesClick={scrollToFeatures} />
 
-      <Features />
+          <Features />
 
-      <section
-        id="dashboard"
-        className="py-24 bg-slate-50"
-      >
-        <div className="container mx-auto px-4">
-          <div className="max-w-6xl mx-auto">
-            <div className="text-center mb-12 animate-in fade-in slide-in-from-bottom-8 duration-500">
-              <h2 className="text-4xl font-bold mb-4 text-slate-800">
-                VPS File Manager
-              </h2>
-              <p className="text-xl text-slate-600">
-                Upload, manage, and share your files securely on your server
-              </p>
-            </div>
-
-            <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-              <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8 bg-slate-100 p-1">
-                <TabsTrigger
-                  value="gallery"
-                  className="data-[state=active]:bg-white data-[state=active]:shadow-sm text-slate-600"
-                >
-                  Gallery
-                </TabsTrigger>
-                <TabsTrigger
-                  value="upload"
-                  className="data-[state=active]:bg-white data-[state=active]:shadow-sm text-slate-600"
-                >
-                  Upload
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="gallery" className="animate-in fade-in duration-300">
-                <FileGallery user={user} />
-              </TabsContent>
-
-              <TabsContent value="upload" className="animate-in fade-in duration-300">
-                <div className="max-w-3xl mx-auto">
-                  <FileUpload
-                    onUploadComplete={() => {
-                      setActiveTab("gallery");
-                    }}
-                  />
+          <section
+            id="dashboard"
+            aria-labelledby="dashboard-heading"
+            className="py-14 sm:py-20"
+          >
+            <div className="container mx-auto px-4">
+              <div className="max-w-6xl mx-auto">
+                <div className="text-center mb-10 sm:mb-12">
+                  <h2 id="dashboard-heading" className="text-3xl sm:text-4xl font-bold mb-3 text-slate-900">
+                    VPS File Manager
+                  </h2>
+                  <p className="text-base sm:text-lg text-slate-600">
+                    Upload, manage, and share your files securely on your server
+                  </p>
                 </div>
-              </TabsContent>
-            </Tabs>
-          </div>
-        </div>
-      </section>
 
-      <footer className="border-t py-6 bg-white">
+                <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+                  <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8 bg-white border border-slate-500 p-1 min-h-[48px]">
+                    <TabsTrigger
+                      value="gallery"
+                      className="min-h-[38px] text-slate-700 data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-sm"
+                    >
+                      Gallery
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="upload"
+                      className="min-h-[38px] text-slate-700 data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-sm"
+                    >
+                      Upload
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="gallery">
+                    <FileGallery user={user} />
+                  </TabsContent>
+
+                  <TabsContent value="upload">
+                    <div className="max-w-3xl mx-auto">
+                      <FileUpload
+                        onUploadComplete={() => {
+                          setActiveTab("gallery");
+                        }}
+                      />
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+
+      <footer className="border-t border-slate-200 py-6 bg-white">
         <div className="container mx-auto px-4 text-center">
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-slate-600">
             <a
               href="https://andresptr.site"
               target="_blank"
               rel="noopener noreferrer"
-              className="font-medium text-blue-600 hover:underline underline-offset-4"
+              className="font-medium text-blue-600 hover:underline underline-offset-4 inline-flex items-center min-h-[44px] px-2"
             >
               &copy; {new Date().getFullYear()} Andre Saputra
             </a>
@@ -172,7 +192,7 @@ const Dashboard = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <Button onClick={goToLogin} className="w-full">
+            <Button onClick={goToLogin} className="w-full min-h-[44px]">
               Go to Login
             </Button>
           </div>

@@ -333,7 +333,10 @@ export const FileCard = ({ file, onDelete, onShareChange }: FileCardProps) => {
             </DialogHeader>
             <div className="flex items-center justify-center min-h-[120px] bg-slate-100 rounded-lg overflow-hidden p-2">
               {mediaLoading || !mediaUrl ? (
-                <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                <div className="flex flex-col items-center gap-2" role="status">
+                  <div className="app-spinner w-8 h-8 border-2 border-slate-200 border-t-blue-600 rounded-full" aria-hidden="true" />
+                  <p className="text-sm font-medium text-slate-600">Loading media...</p>
+                </div>
               ) : isVideo ? (
                 <video src={mediaUrl} controls autoPlay className="w-full max-h-[70vh] rounded">
                   <track kind="captions" />

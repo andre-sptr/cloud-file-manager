@@ -70,22 +70,24 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-blue-100 p-4">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(37,99,235,0.08),transparent)] pointer-events-none" />
-
-      <Card className="w-full max-w-md relative z-10 shadow-2xl border-slate-200 bg-white backdrop-blur-xl">
+    <main className="min-h-screen flex items-center justify-center app-page-canvas p-4">
+      <Card className="w-full max-w-md shadow-xl shadow-slate-900/5 border-slate-200 bg-white">
         <CardHeader className="text-center space-y-4">
-          <div className="mx-auto w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mb-2 shadow-lg shadow-blue-500/30">
-            <Cloud className="w-10 h-10 text-white" />
+          <div className="mx-auto w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center mb-1 shadow-sm shadow-blue-600/20">
+            <Cloud className="w-8 h-8 text-white" aria-hidden="true" />
           </div>
-          <CardTitle className="text-3xl font-bold tracking-tight text-slate-800">Welcome to VPS File Hub</CardTitle>
-          <CardDescription className="text-slate-500">Securely store and manage your files on your own server</CardDescription>
+          <CardTitle className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+            Welcome to VPS File Hub
+          </CardTitle>
+          <CardDescription className="text-slate-600">
+            Store and manage your files on your own server
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6 bg-slate-100">
-              <TabsTrigger value="login" className="data-[state=active]:bg-white data-[state=active]:text-blue-600">Login</TabsTrigger>
-              <TabsTrigger value="signup" className="data-[state=active]:bg-white data-[state=active]:text-blue-600">Sign Up</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 mb-6 bg-slate-100 min-h-[44px] p-1">
+              <TabsTrigger value="login" className="min-h-[36px] data-[state=active]:bg-white data-[state=active]:text-blue-600">Login</TabsTrigger>
+              <TabsTrigger value="signup" className="min-h-[36px] data-[state=active]:bg-white data-[state=active]:text-blue-600">Sign Up</TabsTrigger>
             </TabsList>
 
             <TabsContent value="login" className="mt-4">
@@ -96,11 +98,11 @@ const Auth = () => {
                     id="login-email"
                     type="email"
                     autoComplete="email"
-                    placeholder="name@gmail.com"
+                    placeholder="name@example.com"
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
                     required
-                    className="bg-slate-50 border-slate-300 text-slate-800 focus:ring-blue-500 focus:border-blue-500"
+                    className="min-h-[44px] bg-slate-50 border-slate-500 text-slate-900 placeholder:text-slate-500 focus:ring-blue-500 focus:border-blue-600"
                   />
                 </div>
                 <div className="space-y-2">
@@ -113,10 +115,10 @@ const Auth = () => {
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}
                     required
-                    className="bg-slate-50 border-slate-300 text-slate-800 focus:ring-blue-500 focus:border-blue-500"
+                    className="min-h-[44px] bg-slate-50 border-slate-500 text-slate-900 placeholder:text-slate-500 focus:ring-blue-500 focus:border-blue-600"
                   />
                 </div>
-                <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition-all duration-300 transform hover:-translate-y-0.5" disabled={loading}>
+                <Button type="submit" className="w-full min-h-[44px] bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-medium rounded-lg transition-colors" disabled={loading}>
                   {loading ? "Authenticating..." : "Sign In"}
                 </Button>
               </form>
@@ -130,11 +132,11 @@ const Auth = () => {
                     id="signup-email"
                     type="email"
                     autoComplete="email"
-                    placeholder="name@gmail.com"
+                    placeholder="name@example.com"
                     value={signupEmail}
                     onChange={(e) => setSignupEmail(e.target.value)}
                     required
-                    className="bg-slate-50 border-slate-300 text-slate-800 focus:ring-blue-500 focus:border-blue-500"
+                    className="min-h-[44px] bg-slate-50 border-slate-500 text-slate-900 placeholder:text-slate-500 focus:ring-blue-500 focus:border-blue-600"
                   />
                 </div>
                 <div className="space-y-2">
@@ -148,10 +150,10 @@ const Auth = () => {
                     onChange={(e) => setSignupPassword(e.target.value)}
                     required
                     minLength={8}
-                    className="bg-slate-50 border-slate-300 text-slate-800 focus:ring-blue-500 focus:border-blue-500"
+                    className="min-h-[44px] bg-slate-50 border-slate-500 text-slate-900 placeholder:text-slate-500 focus:ring-blue-500 focus:border-blue-600"
                   />
                 </div>
-                <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition-all duration-300 transform hover:-translate-y-0.5" disabled={loading}>
+                <Button type="submit" className="w-full min-h-[44px] bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-medium rounded-lg transition-colors" disabled={loading}>
                   {loading ? "Creating account..." : "Create Account"}
                 </Button>
               </form>
@@ -161,15 +163,15 @@ const Auth = () => {
           <div className="mt-6 text-center">
             <Link
               to="/"
-              className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-blue-600 transition-colors"
+              className="inline-flex items-center gap-1.5 min-h-[44px] px-3 text-sm text-slate-600 hover:text-blue-600 transition-colors"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-4 h-4" aria-hidden="true" />
               Back to Home
             </Link>
           </div>
         </CardContent>
       </Card>
-    </div>
+    </main>
   );
 };
 

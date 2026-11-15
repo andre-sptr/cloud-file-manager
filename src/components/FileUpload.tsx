@@ -142,27 +142,27 @@ export const FileUpload = ({ onUploadComplete }: FileUploadProps) => {
       <div
         {...getRootProps()}
         className={`
-          relative border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer
-          transition-all duration-300 backdrop-blur-sm
+          relative border-2 border-dashed rounded-2xl p-8 sm:p-12 text-center cursor-pointer bg-white
+          transition-colors
           ${isDragActive
-            ? "border-blue-500 bg-blue-50 scale-105"
-            : "border-slate-300 hover:border-blue-400 hover:bg-blue-50/50"
+            ? "border-blue-600 bg-blue-50"
+            : "border-slate-500 hover:border-blue-600 hover:bg-blue-50/60"
           }
         `}
       >
-        <input {...getInputProps()} />
+        <input {...getInputProps()} aria-label="Select files to upload" />
         <div className="flex flex-col items-center gap-4">
-          <div className="w-20 h-20 rounded-2xl bg-blue-100 flex items-center justify-center">
-            <Upload className="w-10 h-10 text-blue-600" />
+          <div className="w-16 h-16 rounded-2xl bg-blue-100 flex items-center justify-center">
+            <Upload className="w-8 h-8 text-blue-600" aria-hidden="true" />
           </div>
           <div>
-            <p className="text-lg font-semibold mb-2 text-slate-700">
+            <p className="text-lg font-semibold mb-2 text-slate-800">
               {isDragActive ? "Drop files here" : "Drag & drop files here"}
             </p>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-slate-600">
               or click to browse • Max {MAX_FILE_SIZE_MB}MB per file • Up to {MAX_FILES_UPLOAD} files
             </p>
-            <p className="text-xs text-slate-400 mt-2">
+            <p className="text-xs text-slate-600 mt-2">
               Supports: Images, MP4/WebM, MP3/WAV, PDF, TXT, CSV, JSON, ZIP
             </p>
           </div>
@@ -182,23 +182,24 @@ export const FileUpload = ({ onUploadComplete }: FileUploadProps) => {
                   className="flex items-center gap-3 p-4 rounded-xl bg-white border border-slate-200 hover:border-slate-300 transition-colors"
                 >
                   <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                    <IconComponent className="w-5 h-5 text-blue-600" />
+                    <IconComponent className="w-5 h-5 text-blue-600" aria-hidden="true" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate text-slate-700">{file.name}</p>
-                    <p className="text-sm text-slate-500">
+                    <p className="font-medium truncate text-slate-800">{file.name}</p>
+                    <p className="text-sm text-slate-600">
                       {formatFileSize(file.size, 2)}
                     </p>
                   </div>
                   <Button
+                    type="button"
                     variant="ghost"
                     size="sm"
                     aria-label={`Remove ${file.name}`}
                     onClick={() => removeFile(index)}
                     disabled={uploading}
-                    className="text-slate-400 hover:text-red-500 hover:bg-red-50"
+                    className="min-h-[44px] min-w-[44px] text-slate-500 hover:text-red-600 hover:bg-red-50"
                   >
-                    <X className="w-4 h-4" />
+                    <X className="w-4 h-4" aria-hidden="true" />
                   </Button>
                 </div>
               );
@@ -230,7 +231,7 @@ export const FileUpload = ({ onUploadComplete }: FileUploadProps) => {
                 variant="outline"
                 size="lg"
                 onClick={cancelUpload}
-                className="border-slate-300 text-slate-700 hover:bg-red-50 hover:text-red-700 hover:border-red-300"
+                className="min-h-[44px] border-slate-500 text-slate-800 hover:bg-red-50 hover:text-red-700 hover:border-red-600"
               >
                 Cancel
               </Button>

@@ -75,7 +75,7 @@ const SharedFile = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
+      <main className="min-h-screen flex items-center justify-center app-page-canvas" role="status" aria-label="Loading shared file">
         <Card className="w-full max-w-4xl mx-4 p-0 overflow-hidden bg-white border-slate-200">
           <Skeleton className="aspect-video bg-slate-200" />
           <div className="p-8 space-y-4">
@@ -87,28 +87,28 @@ const SharedFile = () => {
             </div>
           </div>
         </Card>
-      </div>
+      </main>
     );
   }
 
   if (!file) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white p-4">
+      <main className="min-h-screen flex items-center justify-center app-page-canvas p-4">
         <Card className="p-8 text-center max-w-md bg-white border-slate-200">
           <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-red-100 flex items-center justify-center">
-            <File className="w-8 h-8 text-red-600" />
+            <File className="w-8 h-8 text-red-600" aria-hidden="true" />
           </div>
           <h1 className="text-2xl font-bold mb-2 text-slate-800">
             File Not Found
           </h1>
-          <p className="text-slate-500 mb-6">
+          <p className="text-slate-600 mb-6">
             The file you're looking for doesn't exist or has been deleted.
           </p>
-          <Button asChild>
+          <Button asChild className="min-h-[44px]">
             <Link to="/">Go to Home</Link>
           </Button>
         </Card>
-      </div>
+      </main>
     );
   }
 
@@ -118,36 +118,40 @@ const SharedFile = () => {
   const isAudio = file.type.startsWith("audio/");
 
   return (
-    <div className="min-h-screen bg-white">
-      <nav className="border-b border-slate-200 bg-white/80 backdrop-blur-lg sticky top-0 z-50">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center gap-2 h-16">
-            <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
-                <Cloud className="w-6 h-6 text-white" />
+    <div className="min-h-screen app-page-canvas">
+      <header className="border-b border-slate-200/90 bg-white/85 backdrop-blur-md sticky top-0 z-40">
+        <nav aria-label="Primary" className="container mx-auto px-4">
+          <div className="flex items-center gap-2 min-h-16 py-2">
+            <Link to="/" className="inline-flex items-center gap-2.5 min-h-[44px] hover:opacity-80 transition-opacity">
+              <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-sm shadow-blue-600/20">
+                <Cloud className="w-6 h-6 text-white" aria-hidden="true" />
               </div>
               <span className="text-xl font-bold text-slate-800">
                 VPS File Hub
               </span>
             </Link>
           </div>
-        </div>
-      </nav>
+        </nav>
+      </header>
 
-      <div className="container mx-auto px-4 py-8">
-        <Card className="max-w-4xl mx-auto overflow-hidden bg-white border-slate-200">
+      <main className="container mx-auto px-4 py-8">
+        <Card className="max-w-4xl mx-auto overflow-hidden bg-white border-slate-200 shadow-lg shadow-slate-900/5">
           <div className="relative aspect-video bg-slate-100 flex items-center justify-center overflow-hidden">
             {isImage ? (
               <img
                 src={file.url}
                 alt={file.name}
-                className="w-full h-full object-contain animate-in fade-in duration-300"
+                width={1280}
+                height={720}
+                className="w-full h-full object-contain"
                 onError={() => setImageError(true)}
               />
             ) : isVideo ? (
               <video
                 src={file.url}
                 controls
+                width={1280}
+                height={720}
                 className="w-full h-full"
               >
                 <track kind="captions" />
@@ -155,14 +159,14 @@ const SharedFile = () => {
             ) : isAudio ? (
               <div className="flex flex-col items-center justify-center gap-4 p-8 w-full max-w-md">
                 <div className="w-20 h-20 rounded-3xl bg-blue-100 flex items-center justify-center">
-                  <IconComponent className="w-10 h-10 text-blue-600" />
+                  <IconComponent className="w-10 h-10 text-blue-600" aria-hidden="true" />
                 </div>
                 <audio controls src={file.url} className="w-full" />
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center gap-4 p-8">
                 <div className="w-24 h-24 rounded-3xl bg-blue-100 flex items-center justify-center">
-                  <IconComponent className="w-12 h-12 text-blue-600" />
+                  <IconComponent className="w-12 h-12 text-blue-600" aria-hidden="true" />
                 </div>
               </div>
             )}
@@ -170,10 +174,10 @@ const SharedFile = () => {
 
           <div className="p-6 md:p-8 space-y-6">
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold mb-2 text-slate-800 break-words">
+              <h1 className="text-2xl md:text-3xl font-bold mb-2 text-slate-900 break-words">
                 {file.name}
               </h1>
-              <p className="text-slate-500">
+              <p className="text-slate-600">
                 {formatFileSize(file.size, 2)} &bull; {file.type}
               </p>
             </div>
@@ -182,30 +186,30 @@ const SharedFile = () => {
               <Button
                 onClick={downloadFile}
                 size="lg"
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                className="flex-1 min-h-[44px] bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white"
               >
-                <Download className="w-5 h-5 mr-2" />
+                <Download aria-hidden="true" />
                 Download File
               </Button>
               <Button
                 onClick={copyLink}
                 variant="outline"
                 size="lg"
-                className="border-slate-300 text-slate-700 hover:bg-blue-50 hover:border-blue-300"
+                className="min-h-[44px] border-slate-500 text-slate-800 hover:bg-blue-50 hover:border-blue-600"
               >
-                <LinkIcon className="w-5 h-5 mr-2" />
+                <LinkIcon aria-hidden="true" />
                 Copy Link
               </Button>
             </div>
 
             <div className="pt-4 border-t border-slate-200">
-              <p className="text-sm text-slate-500 text-center">
-                Shared via VPS File Hub &bull; Secure local hosting
+              <p className="text-sm text-slate-600 text-center">
+                Shared via VPS File Hub &bull; Self-hosted file hosting
               </p>
             </div>
           </div>
         </Card>
-      </div>
+      </main>
     </div>
   );
 };

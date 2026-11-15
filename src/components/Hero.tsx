@@ -1,85 +1,97 @@
+import type { ImgHTMLAttributes } from "react";
 import { Button } from "@/components/ui/button";
-import { Cloud, Upload } from "lucide-react";
+import { Upload } from "lucide-react";
 import heroImage from "@/assets/hero-cloud.jpg";
 
 interface HeroProps {
   onUploadClick: () => void;
-  onLearnMoreClick?: () => void;
+  onFeaturesClick?: () => void;
 }
 
-export const Hero = ({ onUploadClick, onLearnMoreClick }: HeroProps) => {
-  const handleLearnMore = () => {
-    if (onLearnMoreClick) {
-      onLearnMoreClick();
+const getScrollBehavior = (): ScrollBehavior =>
+  typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ? "auto"
+    : "smooth";
+
+export const Hero = ({ onUploadClick, onFeaturesClick }: HeroProps) => {
+  const handleViewFeatures = () => {
+    if (onFeaturesClick) {
+      onFeaturesClick();
     } else {
-      document.getElementById("features")?.scrollIntoView({ behavior: "smooth" });
+      document.getElementById("features")?.scrollIntoView({ behavior: getScrollBehavior() });
     }
   };
 
   return (
-    <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden bg-gradient-to-b from-white via-blue-50 to-slate-50">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_120%,rgba(37,99,235,0.08),transparent)] pointer-events-none" />
-
-      <div className="container mx-auto px-4 relative z-10">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <div className="space-y-8 animate-in fade-in slide-in-from-left-8 duration-700">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-100 text-blue-700 text-sm font-medium w-fit mt-4">
-              <Cloud className="w-4 h-4" />
-              Self-Hosted File Storage
-            </div>
-
-            <h1 className="text-5xl lg:text-6xl font-bold leading-tight text-slate-900">
-              Upload, Share, and Store
-              <span className="block text-blue-600 mt-2">Your Files with Ease</span>
+    <section
+      aria-labelledby="hero-heading"
+      className="relative py-12 sm:py-16 lg:py-24 overflow-x-clip"
+    >
+      <div className="container mx-auto px-4">
+        <div className="grid lg:grid-cols-12 gap-10 lg:gap-12 items-center">
+          <div className="lg:col-span-6 space-y-6 sm:space-y-8">
+            <h1
+              id="hero-heading"
+              className="text-3xl sm:text-5xl lg:text-[3.25rem] font-bold tracking-tight leading-[1.12] text-slate-900"
+            >
+              Store and share files
+              <span className="block text-blue-600 mt-1.5">on your own server.</span>
             </h1>
 
-            <p className="text-xl text-slate-600 max-w-xl">
-              A lightweight, self-hosted file hosting platform. Upload images, audio,
-              videos, and documents, and share selectively with public links.
+            <p className="text-base sm:text-lg leading-relaxed text-slate-600 max-w-xl">
+              Upload images, audio, video, and documents straight to private server storage. Create
+              public links one file at a time whenever you choose to share.
             </p>
 
-            <div className="flex flex-wrap gap-4">
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4">
               <Button
                 size="lg"
-                className="text-lg px-8 shadow-lg hover:shadow-xl transition-all bg-blue-600 hover:bg-blue-700"
+                className="min-h-[44px] px-7 text-base font-semibold bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white shadow-md shadow-blue-600/15"
                 onClick={onUploadClick}
               >
-                <Upload className="w-5 h-5 mr-2" />
-                Upload Now
+                <Upload aria-hidden="true" />
+                Upload Files
               </Button>
               <Button
                 size="lg"
                 variant="outline"
-                className="text-lg px-8 border-slate-300 text-slate-700 hover:bg-slate-50 hover:text-slate-700"
-                onClick={handleLearnMore}
+                className="min-h-[44px] px-7 text-base font-medium border-slate-500 bg-white text-slate-800 hover:bg-slate-100 hover:text-slate-900 hover:border-slate-700 active:bg-slate-200"
+                onClick={handleViewFeatures}
               >
-                Learn More
+                View Features
               </Button>
             </div>
 
-            <div className="flex items-center gap-8 pt-8">
-              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: "300ms" }}>
-                <div className="text-3xl font-bold text-blue-600">15MB</div>
-                <div className="text-sm text-slate-500">Max File Size</div>
+            <dl className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 pt-6 border-t border-slate-200/90 max-w-lg">
+              <div>
+                <dt className="text-xs font-medium text-slate-600">Max File Size</dt>
+                <dd className="mt-1 text-lg sm:text-xl font-semibold text-slate-900">15 MB</dd>
               </div>
-              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: "400ms" }}>
-                <div className="text-3xl font-bold text-blue-600">Up to 10</div>
-                <div className="text-sm text-slate-500">Files per Upload</div>
+              <div>
+                <dt className="text-xs font-medium text-slate-600">Batch Limit</dt>
+                <dd className="mt-1 text-lg sm:text-xl font-semibold text-slate-900">10 Files</dd>
               </div>
-              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: "500ms" }}>
-                <div className="text-3xl font-bold text-blue-600">Private</div>
-                <div className="text-sm text-slate-500">By Default</div>
+              <div>
+                <dt className="text-xs font-medium text-slate-600">Default Access</dt>
+                <dd className="mt-1 text-lg sm:text-xl font-semibold text-slate-900">Private</dd>
               </div>
-            </div>
+            </dl>
           </div>
 
-          <div className="relative animate-in fade-in slide-in-from-right-8 duration-700" style={{ animationDelay: "200ms" }}>
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-100 to-blue-50 rounded-3xl blur-3xl animate-pulse" />
-            <img
-              src={heroImage}
-              alt="Cloud storage illustration"
-              className="relative w-full rounded-3xl shadow-2xl hover:scale-[1.02] transition-transform duration-500"
-            />
+          <div className="lg:col-span-6">
+            <figure className="rounded-2xl border border-slate-200/90 bg-white p-2 shadow-xl shadow-slate-900/5">
+              <div className="overflow-hidden rounded-xl bg-slate-100 aspect-video">
+                <img
+                  src={heroImage}
+                  alt="Isometric illustration of layered server storage blocks and uploaded media cards on a light canvas"
+                  width={1920}
+                  height={1080}
+                  decoding="async"
+                  {...({ fetchpriority: "high" } as ImgHTMLAttributes<HTMLImageElement>)}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            </figure>
           </div>
         </div>
       </div>

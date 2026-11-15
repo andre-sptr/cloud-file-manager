@@ -100,10 +100,11 @@ export const FileGallery = ({ user }: FileGalleryProps) => {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6" role="status" aria-label="Loading files">
+        <p className="sr-only">Loading your files...</p>
         <div className="flex flex-col sm:flex-row gap-4">
-          <Skeleton className="h-10 flex-1 bg-slate-200" />
-          <Skeleton className="h-10 w-48 bg-slate-200" />
+          <Skeleton className="h-11 flex-1 bg-slate-200" />
+          <Skeleton className="h-11 w-full sm:w-48 bg-slate-200" />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -124,19 +125,19 @@ export const FileGallery = ({ user }: FileGalleryProps) => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-500" aria-hidden="true" />
           <Input
             aria-label="Search files"
             placeholder="Search files..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 bg-white border-slate-300 text-slate-800 placeholder:text-slate-400 focus:ring-blue-500 focus:border-blue-500"
+            className="min-h-[44px] pl-10 bg-white border-slate-500 text-slate-900 placeholder:text-slate-500 focus:ring-blue-500 focus:border-blue-600"
           />
         </div>
         <Select value={filterType} onValueChange={setFilterType}>
           <SelectTrigger
             aria-label="Filter files by type"
-            className="w-full sm:w-48 bg-white border-slate-300 text-slate-700 focus:ring-blue-500 focus:border-blue-500"
+            className="min-h-[44px] w-full sm:w-48 bg-white border-slate-500 text-slate-800 focus:ring-blue-500 focus:border-blue-600"
           >
             <SelectValue placeholder="Filter by type" />
           </SelectTrigger>
@@ -161,35 +162,35 @@ export const FileGallery = ({ user }: FileGalleryProps) => {
       </div>
 
       {fetchError ? (
-        <div className="text-center py-16 px-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
-          <div className="w-20 h-20 mx-auto rounded-2xl bg-red-100 flex items-center justify-center">
-            <AlertCircle className="w-10 h-10 text-red-500" />
+        <div className="text-center py-16 px-4 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-4">
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-red-100 flex items-center justify-center">
+            <AlertCircle className="w-8 h-8 text-red-600" aria-hidden="true" />
           </div>
           <div>
-            <p className="text-lg font-medium text-slate-700 mb-1">
+            <p className="text-lg font-medium text-slate-800 mb-1">
               Unable to load your files
             </p>
-            <p className="text-sm text-slate-500">{fetchError}</p>
+            <p className="text-sm text-slate-600">{fetchError}</p>
           </div>
-          <Button variant="outline" onClick={loadFiles}>
+          <Button variant="outline" onClick={loadFiles} className="min-h-[44px] border-slate-500 text-slate-800 hover:bg-slate-100">
             Retry
           </Button>
         </div>
       ) : filteredFiles.length === 0 ? (
-        <div className="text-center py-16 px-4 bg-slate-50 rounded-2xl border border-slate-200">
-          <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-slate-100 flex items-center justify-center">
+        <div className="text-center py-16 px-4 bg-white rounded-2xl border border-slate-200 shadow-sm">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-slate-100 flex items-center justify-center">
             {!user ? (
-              <Lock className="w-10 h-10 text-slate-400" />
+              <Lock className="w-8 h-8 text-slate-600" aria-hidden="true" />
             ) : files.length === 0 ? (
-              <Upload className="w-10 h-10 text-slate-400" />
+              <Upload className="w-8 h-8 text-slate-600" aria-hidden="true" />
             ) : (
-              <Search className="w-10 h-10 text-slate-400" />
+              <Search className="w-8 h-8 text-slate-600" aria-hidden="true" />
             )}
           </div>
-          <p className="text-lg font-medium text-slate-700 mb-2">
+          <p className="text-lg font-medium text-slate-800 mb-2">
             {!user ? "Login to view your files" : files.length === 0 ? "No files uploaded yet" : "No files match your search"}
           </p>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-slate-600">
             {!user
               ? "Please login to upload and manage your files"
               : files.length === 0
@@ -199,18 +200,13 @@ export const FileGallery = ({ user }: FileGalleryProps) => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredFiles.map((file, index) => (
-            <div
+          {filteredFiles.map((file) => (
+            <FileCard
               key={file.id}
-              className="animate-in fade-in slide-in-from-bottom-4 duration-300"
-              style={{ animationDelay: `${index * 50}ms` }}
-            >
-              <FileCard
-                file={file}
-                onDelete={() => handleDelete(file.id)}
-                onShareChange={handleShareChange}
-              />
-            </div>
+              file={file}
+              onDelete={() => handleDelete(file.id)}
+              onShareChange={handleShareChange}
+            />
           ))}
         </div>
       )}
