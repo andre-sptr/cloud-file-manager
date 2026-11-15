@@ -328,7 +328,7 @@ const sendStoredFile = async (req, res, file, { forceDownload }) => {
   );
 };
 
-const fileFilter = (req, file, cb) => {
+const fileFilter = (_req, file, cb) => {
   const spec = ALLOWED_FILE_SPECS[file.mimetype];
   if (!spec) {
     const err = new Error(`File type not allowed. Allowed types: ${Object.keys(ALLOWED_FILE_SPECS).join(', ')}`);
@@ -347,7 +347,7 @@ const fileFilter = (req, file, cb) => {
 };
 
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
+  destination: function (req, _file, cb) {
     if (!req.user?.id || !UUID_REGEX.test(req.user.id)) {
       const err = new Error('Invalid user context');
       err.statusCode = 401;
@@ -363,7 +363,7 @@ const storage = multer.diskStorage({
       .then(() => cb(null, userDir))
       .catch((err) => cb(err));
   },
-  filename: function (req, file, cb) {
+  filename: function (_req, file, cb) {
     const spec = ALLOWED_FILE_SPECS[file.mimetype];
     const ext = spec ? spec.canonicalExt : '';
     const uniqueSuffix = crypto.randomUUID();
@@ -581,6 +581,13 @@ router.delete('/:id', requireAuth, async (req, res) => {
     if (filePath) {
       try {
         await fs.promises.unlink(filePath);
+        const ownerDir = path.dirname(filePath);
+        if (ownerDir !== uploadsDir) {
+          const remaining = await fs.promises.readdir(ownerDir).catch(() => null);
+          if (Array.isArray(remaining) && remaining.length === 0) {
+            await fs.promises.rmdir(ownerDir).catch(() => {});
+          }
+        }
       } catch (err) {
         if (err?.code === 'ENOENT') {
           console.warn(`File not found at path for file ${fileId}`);

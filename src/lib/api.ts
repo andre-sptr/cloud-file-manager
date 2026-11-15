@@ -1,9 +1,37 @@
 import { API_BASE, STORAGE_KEYS } from './constants';
 import type { User, LoginResponse, FileData, AuthSession } from '@/types';
 
+const AUTH_CLEARED_EVENT = 'vps-file-hub:auth-cleared';
+
 const clearStoredAuth = () => {
+  const hadAuth = Boolean(
+    localStorage.getItem(STORAGE_KEYS.TOKEN) || localStorage.getItem(STORAGE_KEYS.USER)
+  );
   localStorage.removeItem(STORAGE_KEYS.TOKEN);
   localStorage.removeItem(STORAGE_KEYS.USER);
+  if (hadAuth && typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(AUTH_CLEARED_EVENT));
+  }
+};
+
+export const subscribeAuthCleared = (callback: () => void): (() => void) => {
+  if (typeof window === 'undefined') {
+    return () => {};
+  }
+
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key === null || (event.key === STORAGE_KEYS.TOKEN && !event.newValue)) {
+      callback();
+    }
+  };
+
+  window.addEventListener(AUTH_CLEARED_EVENT, callback);
+  window.addEventListener('storage', handleStorage);
+
+  return () => {
+    window.removeEventListener(AUTH_CLEARED_EVENT, callback);
+    window.removeEventListener('storage', handleStorage);
+  };
 };
 
 const isTokenExpired = (token: string): boolean => {
@@ -122,9 +150,10 @@ export const api = {
     }
   },
   files: {
-    list: async (): Promise<FileData[]> => {
+    list: async (signal?: AbortSignal): Promise<FileData[]> => {
       const res = await fetch(`${API_BASE}/files`, {
-        headers: getAuthHeaders()
+        headers: getAuthHeaders(),
+        signal,
       });
       if (!res.ok) throw await buildHttpError(res, 'Failed to fetch files');
       return res.json();

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import type { FileData, User } from "@/types";
 import { FileCard } from "./FileCard";
@@ -19,32 +19,50 @@ export const FileGallery = ({ user }: FileGalleryProps) => {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("all");
+  const activeRequestRef = useRef<AbortController | null>(null);
 
   const loadFiles = useCallback(async () => {
+    activeRequestRef.current?.abort();
+
     if (!user) {
+      activeRequestRef.current = null;
       setFiles([]);
       setFetchError(null);
       setLoading(false);
       return;
     }
 
+    const controller = new AbortController();
+    activeRequestRef.current = controller;
     setLoading(true);
     setFetchError(null);
     try {
-      const data = await api.files.list();
-      setFiles(data || []);
+      const data = await api.files.list(controller.signal);
+      if (activeRequestRef.current === controller) {
+        setFiles(data || []);
+      }
     } catch (error: unknown) {
-      console.error("Error loading files:", error);
-      const message = error instanceof Error ? error.message : "Failed to load files";
-      setFetchError(message);
-      setFiles([]);
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return;
+      }
+      if (activeRequestRef.current === controller) {
+        console.error("Error loading files:", error);
+        const message = error instanceof Error ? error.message : "Failed to load files";
+        setFetchError(message);
+        setFiles([]);
+      }
     } finally {
-      setLoading(false);
+      if (activeRequestRef.current === controller) {
+        setLoading(false);
+      }
     }
   }, [user]);
 
   useEffect(() => {
     loadFiles();
+    return () => {
+      activeRequestRef.current?.abort();
+    };
   }, [loadFiles]);
 
   const handleDelete = async (id: string) => {

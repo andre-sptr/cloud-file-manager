@@ -62,6 +62,8 @@ npm run dev
 
 Vite runs on `http://localhost:8080` and proxies `/api` requests to `http://localhost:3002`.
 
+In production, serve the built frontend (`dist/`) and proxy `/api` to the backend on the same origin (for example via Nginx or Caddy) so `Cross-Origin-Resource-Policy: same-origin` allows inline media previews cleanly.
+
 ## Verification Commands
 
 ```bash

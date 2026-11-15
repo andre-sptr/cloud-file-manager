@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { api } from "@/lib/api";
+import { api, subscribeAuthCleared } from "@/lib/api";
 import { Navbar } from "@/components/Navbar";
 import { Hero } from "@/components/Hero";
 import { Features } from "@/components/Features";
@@ -25,21 +25,37 @@ const Dashboard = () => {
   const [showLoginDialog, setShowLoginDialog] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+
     const checkAuth = async () => {
       try {
         const { data: { session } } = await api.auth.getSession();
 
-        if (session && session.user) {
+        if (!cancelled && session && session.user) {
           setUser(session.user);
         }
       } catch (err) {
         console.error("Failed to verify session:", err);
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
     checkAuth();
+
+    const unsubscribe = subscribeAuthCleared(() => {
+      if (!cancelled) {
+        setUser(null);
+        setActiveTab("gallery");
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, []);
 
   const scrollToUpload = () => {
