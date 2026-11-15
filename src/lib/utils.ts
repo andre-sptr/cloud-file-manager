@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { File, Image, Video } from "lucide-react";
+import { File, Image, Music, Video } from "lucide-react";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -15,6 +15,7 @@ export function formatFileSize(bytes: number, mbDecimals = 1): string {
 export function getFileIcon(mimeType: string) {
   if (mimeType.startsWith("image/")) return Image;
   if (mimeType.startsWith("video/")) return Video;
+  if (mimeType.startsWith("audio/")) return Music;
   return File;
 }
 

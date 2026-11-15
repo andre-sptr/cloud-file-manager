@@ -19,13 +19,17 @@ const Auth = () => {
   const [signupPassword, setSignupPassword] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
     const checkAuth = async () => {
       const { data: { session } } = await api.auth.getSession();
-      if (session) {
+      if (session && !cancelled) {
         navigate("/");
       }
     };
     checkAuth();
+    return () => {
+      cancelled = true;
+    };
   }, [navigate]);
 
   const handleSignUp = async (e: React.FormEvent) => {

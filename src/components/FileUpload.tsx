@@ -17,11 +17,13 @@ export const FileUpload = ({ onUploadComplete }: FileUploadProps) => {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const mountedRef = useRef(true);
+  const uploadAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      uploadAbortRef.current?.abort();
     };
   }, []);
 
@@ -84,6 +86,8 @@ export const FileUpload = ({ onUploadComplete }: FileUploadProps) => {
     if (files.length === 0) return;
 
     const uploadCount = files.length;
+    const controller = new AbortController();
+    uploadAbortRef.current = controller;
     setUploading(true);
     setUploadProgress(0);
 
@@ -94,11 +98,15 @@ export const FileUpload = ({ onUploadComplete }: FileUploadProps) => {
         return;
       }
 
-      await api.files.upload(files, (percent) => {
-        if (mountedRef.current) {
-          setUploadProgress(percent);
-        }
-      });
+      await api.files.upload(
+        files,
+        (percent) => {
+          if (mountedRef.current) {
+            setUploadProgress(percent);
+          }
+        },
+        controller.signal
+      );
 
       if (!mountedRef.current) return;
 
@@ -107,15 +115,26 @@ export const FileUpload = ({ onUploadComplete }: FileUploadProps) => {
       setFiles([]);
       onUploadComplete();
     } catch (error: unknown) {
+      if (controller.signal.aborted) {
+        if (mountedRef.current) {
+          toast.info("Upload cancelled");
+        }
+        return;
+      }
       console.error("Upload error:", error);
       const message = error instanceof Error ? error.message : "Failed to upload files";
       toast.error(message);
     } finally {
+      uploadAbortRef.current = null;
       if (mountedRef.current) {
         setUploading(false);
         setUploadProgress(0);
       }
     }
+  };
+
+  const cancelUpload = () => {
+    uploadAbortRef.current?.abort();
   };
 
   return (
@@ -196,14 +215,27 @@ export const FileUpload = ({ onUploadComplete }: FileUploadProps) => {
             </div>
           )}
 
-          <Button
-            onClick={uploadFiles}
-            disabled={uploading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/25"
-            size="lg"
-          >
-            {uploading ? "Uploading..." : `Upload ${files.length} File(s)`}
-          </Button>
+          <div className="flex gap-3">
+            <Button
+              onClick={uploadFiles}
+              disabled={uploading}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/25"
+              size="lg"
+            >
+              {uploading ? "Uploading..." : `Upload ${files.length} File(s)`}
+            </Button>
+            {uploading && (
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                onClick={cancelUpload}
+                className="border-slate-300 text-slate-700 hover:bg-red-50 hover:text-red-700 hover:border-red-300"
+              >
+                Cancel
+              </Button>
+            )}
+          </div>
         </div>
       )}
     </div>

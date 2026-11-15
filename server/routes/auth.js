@@ -16,6 +16,8 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_EMAIL_LENGTH = 254;
 const MIN_PASSWORD_LENGTH = 8;
 const MAX_PASSWORD_LENGTH = 128;
+const BCRYPT_ROUNDS = 12;
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync(crypto.randomBytes(16).toString('hex'), BCRYPT_ROUNDS);
 
 const validateEmail = (email) => {
   if (typeof email !== 'string') {
@@ -67,7 +69,7 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    const hashedPassword = await bcrypt.hash(passwordResult.value, 12);
+    const hashedPassword = await bcrypt.hash(passwordResult.value, BCRYPT_ROUNDS);
     const id = crypto.randomUUID();
 
     await runQuery('INSERT INTO users (id, email, password) VALUES (?, ?, ?)', [
@@ -76,6 +78,11 @@ router.post('/register', async (req, res) => {
 
     res.status(201).json({ message: 'User registered successfully' });
   } catch (error) {
+    if (error?.code === 'SQLITE_CONSTRAINT' || error?.message?.includes('UNIQUE constraint failed')) {
+      return res.status(409).json({
+        error: 'Unable to complete registration with this email. If you already have an account, please sign in.'
+      });
+    }
     console.error('Register error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -97,6 +104,7 @@ router.post('/login', async (req, res) => {
 
     const user = await getQuery('SELECT * FROM users WHERE email = ?', [emailResult.value]);
     if (!user) {
+      await bcrypt.compare(passwordResult.value, DUMMY_PASSWORD_HASH);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 

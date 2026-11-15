@@ -5,11 +5,11 @@ A self-hosted file hosting and sharing web application built with React, TypeScr
 ## Features
 
 - **JWT Authentication**: Register and sign in with email and password (minimum 8 characters), hashed with `bcryptjs` and persisted in SQLite.
-- **Multi-File Upload**: Drag-and-drop or browse up to 10 files per batch (up to 15 MB per file) with real-time upload progress.
+- **Multi-File Upload**: Drag-and-drop or browse up to 10 files per batch (up to 15 MB per file) with real-time upload progress and cancellation support.
 - **Server-Side File Validation**: Validates MIME types, extensions, and file signatures/content before storing files on disk (`server/uploads/`).
 - **Private by Default**: Uploaded files are private (`is_public = 0`) and served only through authenticated endpoints (`/api/files/:id/content`), never exposed as static uploads.
 - **Opt-In Public Sharing**: Enable or revoke public sharing links (`/f/:id`) per file from the dashboard.
-- **Search & Filter**: Filter files by type (`image`, `video`, `document`) or search by filename in the gallery.
+- **Search & Filter**: Filter files by type (`image`, `video`, `audio`, `document`) or search by filename in the gallery, with inline preview for images, video, and audio.
 
 ## Tech Stack
 

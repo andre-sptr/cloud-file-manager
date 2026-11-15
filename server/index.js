@@ -46,7 +46,7 @@ app.use(helmet({
       imgSrc: ["'self'", "data:", "blob:"],
       scriptSrc: ["'self'"],
       objectSrc: ["'none'"],
-      mediaSrc: ["'self'"],
+      mediaSrc: ["'self'", "blob:"],
       fontSrc: ["'self'"],
     },
   },
@@ -87,6 +87,10 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Not found' });
 });
 app.use((err, req, res, next) => {
+  if (res.headersSent) {
+    return next(err);
+  }
+
   if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
     return res.status(400).json({ error: 'Invalid JSON payload' });
   }

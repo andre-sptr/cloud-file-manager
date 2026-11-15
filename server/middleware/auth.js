@@ -1,14 +1,12 @@
 import jwt from 'jsonwebtoken';
-import dotenv from 'dotenv';
 import { getQuery } from '../database.js';
-dotenv.config();
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
   throw new Error('JWT_SECRET environment variable is required');
 }
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const requireAuth = async (req, res, next) => {
   const authHeader = req.headers.authorization;

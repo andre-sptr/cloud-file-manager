@@ -50,8 +50,8 @@ export const FileGallery = ({ user }: FileGalleryProps) => {
   const handleDelete = async (id: string) => {
     try {
       await api.files.delete(id);
+      setFiles((prev) => prev.filter((file) => file.id !== id));
       toast.success("File deleted successfully");
-      await loadFiles();
     } catch (error: unknown) {
       console.error("Delete error:", error);
       const message = error instanceof Error ? error.message : "Failed to delete file";
@@ -71,9 +71,11 @@ export const FileGallery = ({ user }: FileGalleryProps) => {
       filterType === "all" ||
       (filterType === "image" && file.type.startsWith("image/")) ||
       (filterType === "video" && file.type.startsWith("video/")) ||
+      (filterType === "audio" && file.type.startsWith("audio/")) ||
       (filterType === "document" &&
         !file.type.startsWith("image/") &&
-        !file.type.startsWith("video/"));
+        !file.type.startsWith("video/") &&
+        !file.type.startsWith("audio/"));
 
     return matchesSearch && matchesType;
   });
@@ -129,6 +131,9 @@ export const FileGallery = ({ user }: FileGalleryProps) => {
             </SelectItem>
             <SelectItem value="video" className="focus:bg-blue-50 focus:text-blue-700">
               Videos
+            </SelectItem>
+            <SelectItem value="audio" className="focus:bg-blue-50 focus:text-blue-700">
+              Audio
             </SelectItem>
             <SelectItem value="document" className="focus:bg-blue-50 focus:text-blue-700">
               Documents

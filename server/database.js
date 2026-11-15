@@ -16,6 +16,8 @@ const db = new sqlite3.Database(dbFile);
 
 export const initDb = async () => {
   await runQuery('PRAGMA foreign_keys = ON');
+  await runQuery('PRAGMA busy_timeout = 5000');
+  await runQuery('PRAGMA journal_mode = WAL');
 
   await runQuery(`
     CREATE TABLE IF NOT EXISTS users (
@@ -74,6 +76,26 @@ export const allQuery = (sql, params = []) => {
       else resolve(rows);
     });
   });
+};
+
+let transactionQueue = Promise.resolve();
+
+export const withTransaction = (fn) => {
+  const run = transactionQueue.then(async () => {
+    await runQuery('BEGIN IMMEDIATE TRANSACTION');
+    try {
+      const result = await fn();
+      await runQuery('COMMIT');
+      return result;
+    } catch (err) {
+      await runQuery('ROLLBACK').catch(() => {});
+      throw err;
+    }
+  });
+
+  // Preserve the serial queue if an earlier transaction rejected
+  transactionQueue = run.catch(() => {});
+  return run;
 };
 
 export default db;

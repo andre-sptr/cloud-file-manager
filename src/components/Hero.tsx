@@ -25,7 +25,7 @@ export const Hero = ({ onUploadClick, onLearnMoreClick }: HeroProps) => {
           <div className="space-y-8 animate-in fade-in slide-in-from-left-8 duration-700">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-100 text-blue-700 text-sm font-medium w-fit mt-4">
               <Cloud className="w-4 h-4" />
-              Secure Cloud Storage
+              Self-Hosted File Storage
             </div>
 
             <h1 className="text-5xl lg:text-6xl font-bold leading-tight text-slate-900">

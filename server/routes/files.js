@@ -4,8 +4,8 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
-import { runQuery, allQuery, getQuery } from '../database.js';
-import { requireAuth } from '../middleware/auth.js';
+import { runQuery, allQuery, getQuery, withTransaction } from '../database.js';
+import { requireAuth, UUID_REGEX } from '../middleware/auth.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,7 +15,6 @@ const router = express.Router();
 const MAX_NAME_LENGTH = 255;
 const MAX_FILE_SIZE = 15 * 1024 * 1024;
 const MAX_FILES_UPLOAD = 10;
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const uploadsDir = path.resolve(__dirname, '..', 'uploads');
 if (!fs.existsSync(uploadsDir)) {
@@ -170,21 +169,45 @@ const readHeaderBytes = async (filePath, length = 64) => {
   }
 };
 
+const verifyUtf8TextFile = async (filePath, { collectText = false } = {}) => {
+  const decoder = new TextDecoder('utf-8', { fatal: true });
+  const stream = fs.createReadStream(filePath, { highWaterMark: 64 * 1024 });
+  const parts = collectText ? [] : null;
+
+  try {
+    for await (const chunk of stream) {
+      if (chunk.includes(0x00)) {
+        return { valid: false, text: '' };
+      }
+      const decodedChunk = decoder.decode(chunk, { stream: true });
+      if (parts) {
+        parts.push(decodedChunk);
+      }
+    }
+
+    const tail = decoder.decode();
+    if (parts && tail) {
+      parts.push(tail);
+    }
+
+    return { valid: true, text: parts ? parts.join('') : '' };
+  } catch {
+    return { valid: false, text: '' };
+  } finally {
+    stream.destroy();
+  }
+};
+
 const verifyFileContent = async (filePath, mimetype) => {
   if (mimetype === 'text/plain' || mimetype === 'text/csv' || mimetype === 'application/json') {
-    const buffer = await fs.promises.readFile(filePath);
-    if (buffer.includes(0x00)) {
+    const isJson = mimetype === 'application/json';
+    const { valid, text } = await verifyUtf8TextFile(filePath, { collectText: isJson });
+    if (!valid) {
       return false;
     }
-    let decoded;
-    try {
-      decoded = new TextDecoder('utf-8', { fatal: true }).decode(buffer);
-    } catch {
-      return false;
-    }
-    if (mimetype === 'application/json') {
+    if (isJson) {
       try {
-        JSON.parse(decoded);
+        JSON.parse(text);
       } catch {
         return false;
       }
@@ -482,7 +505,6 @@ router.patch('/:id/share', requireAuth, async (req, res) => {
 
 router.post('/upload', requireAuth, uploadMiddleware, async (req, res) => {
   const uploadedFiles = req.files || [];
-  let inTransaction = false;
 
   try {
     if (uploadedFiles.length === 0) {
@@ -502,42 +524,36 @@ router.post('/upload', requireAuth, uploadMiddleware, async (req, res) => {
       }
     }
 
-    const savedFiles = [];
-    await runQuery('BEGIN TRANSACTION');
-    inTransaction = true;
+    const savedFiles = await withTransaction(async () => {
+      const inserted = [];
+      for (const file of uploadedFiles) {
+        const sanitizedName = sanitizeDisplayName(file.originalname);
+        const id = path.basename(file.filename, path.extname(file.filename));
+        const storagePath = `/uploads/${req.user.id}/${file.filename}`;
+        const utcTimestamp = new Date().toISOString();
 
-    for (const file of uploadedFiles) {
-      const sanitizedName = sanitizeDisplayName(file.originalname);
-      const id = path.basename(file.filename, path.extname(file.filename));
-      const storagePath = `/uploads/${req.user.id}/${file.filename}`;
-      const utcTimestamp = new Date().toISOString();
+        await runQuery(
+          'INSERT INTO files (id, owner_id, name, type, size, url, is_public, created_at) VALUES (?, ?, ?, ?, ?, ?, 0, ?)',
+          [id, req.user.id, sanitizedName, file.mimetype, file.size, storagePath, utcTimestamp]
+        );
 
-      await runQuery(
-        'INSERT INTO files (id, owner_id, name, type, size, url, is_public, created_at) VALUES (?, ?, ?, ?, ?, ?, 0, ?)',
-        [id, req.user.id, sanitizedName, file.mimetype, file.size, storagePath, utcTimestamp]
-      );
-
-      savedFiles.push(
-        formatOwnerFile({
-          id,
-          owner_id: req.user.id,
-          name: sanitizedName,
-          type: file.mimetype,
-          size: file.size,
-          is_public: 0,
-          created_at: utcTimestamp,
-        })
-      );
-    }
-
-    await runQuery('COMMIT');
-    inTransaction = false;
+        inserted.push(
+          formatOwnerFile({
+            id,
+            owner_id: req.user.id,
+            name: sanitizedName,
+            type: file.mimetype,
+            size: file.size,
+            is_public: 0,
+            created_at: utcTimestamp,
+          })
+        );
+      }
+      return inserted;
+    });
 
     res.status(201).json(savedFiles);
   } catch (error) {
-    if (inTransaction) {
-      await runQuery('ROLLBACK').catch(() => {});
-    }
     await cleanupUploadedFiles(uploadedFiles);
     console.error('Upload error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -551,8 +567,13 @@ router.delete('/:id', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Invalid file ID format' });
     }
 
-    const file = await getQuery('SELECT * FROM files WHERE id = ? AND owner_id = ?', [fileId, req.user.id]);
+    const file = await getQuery('SELECT id, url FROM files WHERE id = ? AND owner_id = ?', [fileId, req.user.id]);
     if (!file) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    const result = await runQuery('DELETE FROM files WHERE id = ? AND owner_id = ?', [fileId, req.user.id]);
+    if (result.changes === 0) {
       return res.status(404).json({ error: 'File not found' });
     }
 
@@ -564,14 +585,12 @@ router.delete('/:id', requireAuth, async (req, res) => {
         if (err?.code === 'ENOENT') {
           console.warn(`File not found at path for file ${fileId}`);
         } else {
-          throw err;
+          console.error(`Failed to unlink file ${fileId} from disk:`, err);
         }
       }
     } else {
       console.warn(`Invalid stored path for file ${fileId}`);
     }
-
-    await runQuery('DELETE FROM files WHERE id = ? AND owner_id = ?', [fileId, req.user.id]);
 
     res.json({ message: 'File deleted successfully' });
   } catch (error) {

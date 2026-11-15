@@ -13,6 +13,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { api } from "@/lib/api";
 import { copyToClipboard, formatFileSize, getFileIcon } from "@/lib/utils";
 import type { FileData } from "@/types";
@@ -30,9 +37,13 @@ export const FileCard = ({ file, onDelete, onShareChange }: FileCardProps) => {
   const [isUpdatingShare, setIsUpdatingShare] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [mediaPreviewOpen, setMediaPreviewOpen] = useState(false);
+  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
+  const [mediaLoading, setMediaLoading] = useState(false);
 
   const isImage = file.type.startsWith("image/");
   const isVideo = file.type.startsWith("video/");
+  const isAudio = file.type.startsWith("audio/");
   const isPublic = Boolean(file.is_public);
 
   useEffect(() => {
@@ -63,6 +74,44 @@ export const FileCard = ({ file, onDelete, onShareChange }: FileCardProps) => {
       }
     };
   }, [file.id, isImage]);
+
+  useEffect(() => {
+    if (!mediaPreviewOpen || (!isVideo && !isAudio)) {
+      setMediaUrl(null);
+      setMediaLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    let objectUrl: string | null = null;
+    setMediaLoading(true);
+
+    api.files
+      .fetchProtectedContent(file.id, false, controller.signal)
+      .then((blob) => {
+        objectUrl = URL.createObjectURL(blob);
+        setMediaUrl(objectUrl);
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        const message = err instanceof Error ? err.message : "Failed to load media preview";
+        toast.error(message);
+        setMediaPreviewOpen(false);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setMediaLoading(false);
+        }
+      });
+
+    return () => {
+      controller.abort();
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+      setMediaUrl(null);
+    };
+  }, [file.id, isAudio, isVideo, mediaPreviewOpen]);
 
   const IconComponent = getFileIcon(file.type);
 
@@ -143,17 +192,34 @@ export const FileCard = ({ file, onDelete, onShareChange }: FileCardProps) => {
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300" />
           </>
         ) : isVideo ? (
-          <div className="relative w-full h-full bg-slate-200 flex items-center justify-center">
+          <button
+            type="button"
+            onClick={() => setMediaPreviewOpen(true)}
+            aria-label={`Play video ${file.name}`}
+            className="relative w-full h-full bg-slate-200 flex items-center justify-center cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          >
             <div className="absolute inset-0 bg-black/40 group-hover:bg-black/30 transition-colors" />
             <div className="relative z-10 w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
               <Play className="w-8 h-8 text-white ml-1" fill="currentColor" />
             </div>
-            <div className="absolute bottom-2 left-2 right-2">
+            <div className="absolute bottom-2 left-2 right-2 text-left">
               <span className="text-xs text-white/80 bg-black/50 px-2 py-1 rounded backdrop-blur-sm">
-                Video
+                Video &bull; Click to preview
               </span>
             </div>
-          </div>
+          </button>
+        ) : isAudio ? (
+          <button
+            type="button"
+            onClick={() => setMediaPreviewOpen(true)}
+            aria-label={`Play audio ${file.name}`}
+            className="w-full h-full flex flex-col items-center justify-center gap-2 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          >
+            <div className="w-20 h-20 rounded-2xl bg-blue-100 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+              <IconComponent className="w-10 h-10 text-blue-600" />
+            </div>
+            <span className="text-xs text-slate-500 font-medium">Audio &bull; Click to play</span>
+          </button>
         ) : (
           <div className="w-20 h-20 rounded-2xl bg-blue-100 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
             <IconComponent className="w-10 h-10 text-blue-600" />
@@ -255,6 +321,30 @@ export const FileCard = ({ file, onDelete, onShareChange }: FileCardProps) => {
           </AlertDialog>
         </div>
       </div>
+
+      {(isVideo || isAudio) && (
+        <Dialog open={mediaPreviewOpen} onOpenChange={setMediaPreviewOpen}>
+          <DialogContent className="sm:max-w-3xl bg-white border-slate-200">
+            <DialogHeader>
+              <DialogTitle className="truncate text-slate-800">{file.name}</DialogTitle>
+              <DialogDescription className="text-slate-500">
+                {formatFileSize(file.size)} &bull; {file.type}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex items-center justify-center min-h-[120px] bg-slate-100 rounded-lg overflow-hidden p-2">
+              {mediaLoading || !mediaUrl ? (
+                <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+              ) : isVideo ? (
+                <video src={mediaUrl} controls autoPlay className="w-full max-h-[70vh] rounded">
+                  <track kind="captions" />
+                </video>
+              ) : (
+                <audio src={mediaUrl} controls autoPlay className="w-full max-w-md" />
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </Card>
   );
 };

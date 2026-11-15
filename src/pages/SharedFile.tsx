@@ -115,6 +115,7 @@ const SharedFile = () => {
   const IconComponent = getFileIcon(file.type);
   const isImage = file.type.startsWith("image/") && !imageError;
   const isVideo = file.type.startsWith("video/");
+  const isAudio = file.type.startsWith("audio/");
 
   return (
     <div className="min-h-screen bg-white">
@@ -151,6 +152,13 @@ const SharedFile = () => {
               >
                 <track kind="captions" />
               </video>
+            ) : isAudio ? (
+              <div className="flex flex-col items-center justify-center gap-4 p-8 w-full max-w-md">
+                <div className="w-20 h-20 rounded-3xl bg-blue-100 flex items-center justify-center">
+                  <IconComponent className="w-10 h-10 text-blue-600" />
+                </div>
+                <audio controls src={file.url} className="w-full" />
+              </div>
             ) : (
               <div className="flex flex-col items-center justify-center gap-4 p-8">
                 <div className="w-24 h-24 rounded-3xl bg-blue-100 flex items-center justify-center">

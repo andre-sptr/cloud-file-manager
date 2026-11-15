@@ -25,7 +25,7 @@ export const Navbar = ({ user }: NavbarProps) => {
       await api.auth.signOut();
       toast.success("Logged out successfully");
       navigate("/auth");
-    } catch (error) {
+    } catch {
       toast.error("Failed to logout");
     }
   };
