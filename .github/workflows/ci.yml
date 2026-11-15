@@ -19,7 +19,7 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install dependencies
+      - name: Install frontend dependencies
         run: |
           if [ -f package-lock.json ]; then
             npm ci
@@ -27,5 +27,27 @@ jobs:
             npm install
           fi
 
-      - name: Build
-        run: npm run build --if-present
+      - name: Lint frontend
+        run: npm run lint
+
+      - name: Typecheck frontend
+        run: |
+          npx tsc -p tsconfig.app.json --noEmit
+          npx tsc -p tsconfig.node.json --noEmit
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Install & verify server syntax
+        working-directory: server
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+          node --check index.js
+          node --check database.js
+          node --check middleware/auth.js
+          node --check routes/auth.js
+          node --check routes/files.js

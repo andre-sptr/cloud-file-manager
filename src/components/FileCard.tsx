@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Download, Trash2, Share2, File, Image, Video, Play } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Download, Trash2, Share2, Play, Lock, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -13,54 +13,111 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { api } from "@/lib/api";
+import { copyToClipboard, formatFileSize, getFileIcon } from "@/lib/utils";
+import type { FileData } from "@/types";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
-
-interface FileData {
-  id: string;
-  name: string;
-  type: string;
-  size: number;
-  url: string;
-  created_at: string;
-}
 
 interface FileCardProps {
   file: FileData;
   onDelete: () => void;
+  onShareChange?: (id: string, isPublic: boolean) => void;
 }
 
-export const FileCard = ({ file, onDelete }: FileCardProps) => {
+export const FileCard = ({ file, onDelete, onShareChange }: FileCardProps) => {
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isUpdatingShare, setIsUpdatingShare] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  const getFileIcon = () => {
-    if (file.type.startsWith("image/")) return Image;
-    if (file.type.startsWith("video/")) return Video;
-    return File;
+  const isImage = file.type.startsWith("image/");
+  const isVideo = file.type.startsWith("video/");
+  const isPublic = Boolean(file.is_public);
+
+  useEffect(() => {
+    if (!isImage) {
+      setPreviewUrl(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    let objectUrl: string | null = null;
+    setImageError(false);
+
+    api.files
+      .fetchProtectedContent(file.id, false, controller.signal)
+      .then((blob) => {
+        objectUrl = URL.createObjectURL(blob);
+        setPreviewUrl(objectUrl);
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setImageError(true);
+      });
+
+    return () => {
+      controller.abort();
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [file.id, isImage]);
+
+  const IconComponent = getFileIcon(file.type);
+
+  const copyShareLink = async () => {
+    setIsUpdatingShare(true);
+    try {
+      if (!isPublic) {
+        await api.files.setShare(file.id, true);
+        onShareChange?.(file.id, true);
+      }
+
+      const shareUrl = `${window.location.origin}/f/${file.id}`;
+      const copied = await copyToClipboard(shareUrl);
+      if (copied) {
+        toast.success(isPublic ? "Share link copied to clipboard!" : "File shared publicly & link copied!");
+      } else {
+        toast.success(`Public link enabled: ${shareUrl}`);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to share file";
+      toast.error(message);
+    } finally {
+      setIsUpdatingShare(false);
+    }
   };
 
-  const IconComponent = getFileIcon();
-
-  const copyShareLink = () => {
-    const fullUrl = `${window.location.origin}${file.url}`;
-    navigator.clipboard.writeText(fullUrl);
-    toast.success("Share link copied to clipboard!");
+  const revokeShare = async () => {
+    setIsUpdatingShare(true);
+    try {
+      await api.files.setShare(file.id, false);
+      onShareChange?.(file.id, false);
+      toast.success("Public access revoked; file is now private");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to update share settings";
+      toast.error(message);
+    } finally {
+      setIsUpdatingShare(false);
+    }
   };
 
-  const downloadFile = () => {
-    const link = document.createElement("a");
-    link.href = file.url;
-    link.download = file.name;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const formatSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + " B";
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+  const downloadFile = async () => {
+    try {
+      const blob = await api.files.fetchProtectedContent(file.id, true);
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = file.name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to download file";
+      toast.error(message);
+    }
   };
 
   const handleDelete = async () => {
@@ -72,16 +129,13 @@ export const FileCard = ({ file, onDelete }: FileCardProps) => {
     }
   };
 
-  const isImage = file.type.startsWith("image/");
-  const isVideo = file.type.startsWith("video/");
-
   return (
     <Card className="group overflow-hidden hover:shadow-xl transition-all duration-300 bg-white border-slate-200">
       <div className="relative aspect-video bg-slate-100 flex items-center justify-center overflow-hidden">
-        {isImage && !imageError ? (
+        {isImage && !imageError && previewUrl ? (
           <>
             <img
-              src={file.url}
+              src={previewUrl}
               alt={file.name}
               className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
               onError={() => setImageError(true)}
@@ -105,13 +159,26 @@ export const FileCard = ({ file, onDelete }: FileCardProps) => {
             <IconComponent className="w-10 h-10 text-blue-600" />
           </div>
         )}
+
+        <div className="absolute top-2 right-2">
+          <span
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium backdrop-blur-sm ${
+              isPublic
+                ? "bg-blue-600/90 text-white"
+                : "bg-slate-900/70 text-white"
+            }`}
+          >
+            {isPublic ? <Globe className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
+            {isPublic ? "Shared" : "Private"}
+          </span>
+        </div>
       </div>
 
       <div className="p-4 space-y-4">
         <div>
           <h3 className="font-semibold truncate mb-1 text-slate-800">{file.name}</h3>
           <div className="flex items-center justify-between text-sm text-slate-500">
-            <span>{formatSize(file.size)}</span>
+            <span>{formatFileSize(file.size)}</span>
             <span>
               {formatDistanceToNow(new Date(file.created_at), { addSuffix: true })}
             </span>
@@ -128,14 +195,36 @@ export const FileCard = ({ file, onDelete }: FileCardProps) => {
             <Download className="w-4 h-4 mr-1" />
             Download
           </Button>
-          <Button variant="outline" size="sm" onClick={copyShareLink} className="border-slate-300 text-slate-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={copyShareLink}
+            disabled={isUpdatingShare}
+            aria-label={isPublic ? "Copy share link" : "Share file publicly and copy link"}
+            title={isPublic ? "Copy share link" : "Enable public link & copy"}
+            className="border-slate-300 text-slate-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700"
+          >
             <Share2 className="w-4 h-4" />
           </Button>
+          {isPublic && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={revokeShare}
+              disabled={isUpdatingShare}
+              aria-label="Revoke public share link"
+              title="Make private"
+              className="border-slate-300 text-slate-700 hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700"
+            >
+              <Lock className="w-4 h-4" />
+            </Button>
+          )}
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button
                 variant="outline"
                 size="sm"
+                aria-label="Delete file"
                 className="text-red-600 hover:text-red-700 hover:bg-red-50 border-slate-300"
                 disabled={isDeleting}
               >

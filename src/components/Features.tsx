@@ -3,27 +3,27 @@ import { Upload, Link2, Shield, Zap } from "lucide-react";
 const features = [
   {
     icon: Upload,
-    title: "Fast Upload",
+    title: "Multi-File Upload",
     description:
-      "Upload your files quickly with our optimized infrastructure. Support for images, videos, and documents.",
+      "Drag and drop up to 10 files at once with real-time upload progress for images, audio, video, PDFs, and archives.",
   },
   {
     icon: Shield,
-    title: "Secure & Private",
+    title: "Private by Default",
     description:
-      "Your files are protected with enterprise-grade security. Only you can access your uploads.",
+      "Every uploaded file requires authentication to view or download unless you explicitly enable public sharing.",
   },
   {
     icon: Link2,
-    title: "Instant Sharing",
+    title: "Controlled Sharing",
     description:
-      "Generate shareable links instantly. Share your files with anyone, anywhere in the world.",
+      "Generate a public share link for any file in one click and revoke public access again whenever you need.",
   },
   {
     icon: Zap,
-    title: "Lightning Fast",
+    title: "Validated Storage",
     description:
-      "Experience blazing fast speeds for uploads and downloads. No waiting, just results.",
+      "Server-side MIME, extension, and file-signature verification ensures safe handling before storing files locally.",
   },
 ];
 

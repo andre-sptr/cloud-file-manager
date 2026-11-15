@@ -1,4 +1,4 @@
-import { Cloud, LogOut, User } from "lucide-react";
+import { Cloud, LogOut, User as UserIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -9,11 +9,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { api } from "@/lib/api";
-import { useNavigate } from "react-router-dom";
+import type { User } from "@/types";
+import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 interface NavbarProps {
-  user: any;
+  user: User | null;
 }
 
 export const Navbar = ({ user }: NavbarProps) => {
@@ -33,19 +34,19 @@ export const Navbar = ({ user }: NavbarProps) => {
     <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-slate-200 shadow-sm">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          <div className="flex items-center gap-2">
+          <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
               <Cloud className="w-6 h-6 text-white" />
             </div>
             <span className="text-xl font-bold text-slate-800">VPS File Hub</span>
-          </div>
+          </Link>
 
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="gap-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100">
                   <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                    <User className="w-4 h-4 text-blue-600" />
+                    <UserIcon className="w-4 h-4 text-blue-600" />
                   </div>
                   <span className="hidden sm:inline">{user.email}</span>
                 </Button>

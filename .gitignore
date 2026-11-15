@@ -25,3 +25,8 @@ dist-ssr
 
 # Environment files
 server/.env
+
+# Runtime database and uploaded files
+server/data/*.sqlite
+server/data/*.sqlite-*
+server/uploads/

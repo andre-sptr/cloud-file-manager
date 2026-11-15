@@ -6,17 +6,13 @@ export interface User {
 
 export interface FileData {
   id: string;
-  owner_id: string;
+  owner_id?: string;
   name: string;
   type: string;
   size: number;
   url: string;
+  is_public?: boolean;
   created_at: string;
-}
-
-export interface ApiResponse<T> {
-  data?: T;
-  error?: string;
 }
 
 export interface AuthSession {
@@ -30,13 +26,4 @@ export interface AuthSession {
 export interface LoginResponse {
   token: string;
   user: Pick<User, 'id' | 'email'>;
-}
-
-export interface UploadedFile {
-  id: string;
-  name: string;
-  type: string;
-  size: number;
-  url: string;
-  owner_id: string;
 }

@@ -11,9 +11,12 @@ import { toast } from "sonner";
 
 const Auth = () => {
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState("login");
   const [loading, setLoading] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [signupEmail, setSignupEmail] = useState("");
+  const [signupPassword, setSignupPassword] = useState("");
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -30,13 +33,16 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      await api.auth.signUp(email, password);
-      
+      await api.auth.signUp(signupEmail, signupPassword);
+
       toast.success("Account created! Please login.");
-      const loginTab = document.querySelector('[value="login"]') as HTMLElement;
-      loginTab?.click();
-    } catch (error: any) {
-      toast.error(error.message || "Failed to sign up");
+      setLoginEmail(signupEmail);
+      setLoginPassword("");
+      setSignupPassword("");
+      setActiveTab("login");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to sign up";
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -47,12 +53,13 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      await api.auth.signInWithPassword(email, password);
+      await api.auth.signInWithPassword(loginEmail, loginPassword);
 
       toast.success("Logged in successfully!");
       navigate("/");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to sign in");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to sign in";
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -71,7 +78,7 @@ const Auth = () => {
           <CardDescription className="text-slate-500">Securely store and manage your files on your own server</CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="login" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6 bg-slate-100">
               <TabsTrigger value="login" className="data-[state=active]:bg-white data-[state=active]:text-blue-600">Login</TabsTrigger>
               <TabsTrigger value="signup" className="data-[state=active]:bg-white data-[state=active]:text-blue-600">Sign Up</TabsTrigger>
@@ -84,9 +91,10 @@ const Auth = () => {
                   <Input
                     id="login-email"
                     type="email"
+                    autoComplete="email"
                     placeholder="name@gmail.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
                     required
                     className="bg-slate-50 border-slate-300 text-slate-800 focus:ring-blue-500 focus:border-blue-500"
                   />
@@ -96,9 +104,10 @@ const Auth = () => {
                   <Input
                     id="login-password"
                     type="password"
+                    autoComplete="current-password"
                     placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
                     required
                     className="bg-slate-50 border-slate-300 text-slate-800 focus:ring-blue-500 focus:border-blue-500"
                   />
@@ -116,9 +125,10 @@ const Auth = () => {
                   <Input
                     id="signup-email"
                     type="email"
+                    autoComplete="email"
                     placeholder="name@gmail.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    value={signupEmail}
+                    onChange={(e) => setSignupEmail(e.target.value)}
                     required
                     className="bg-slate-50 border-slate-300 text-slate-800 focus:ring-blue-500 focus:border-blue-500"
                   />
@@ -128,11 +138,12 @@ const Auth = () => {
                   <Input
                     id="signup-password"
                     type="password"
+                    autoComplete="new-password"
                     placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    value={signupPassword}
+                    onChange={(e) => setSignupPassword(e.target.value)}
                     required
-                    minLength={6}
+                    minLength={8}
                     className="bg-slate-50 border-slate-300 text-slate-800 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>

@@ -34,8 +34,8 @@ export const Hero = ({ onUploadClick, onLearnMoreClick }: HeroProps) => {
             </h1>
 
             <p className="text-xl text-slate-600 max-w-xl">
-              A modern and secure file hosting platform. Upload images, videos, and
-              documents. Share instantly with public links.
+              A lightweight, self-hosted file hosting platform. Upload images, audio,
+              videos, and documents, and share selectively with public links.
             </p>
 
             <div className="flex flex-wrap gap-4">
@@ -63,12 +63,12 @@ export const Hero = ({ onUploadClick, onLearnMoreClick }: HeroProps) => {
                 <div className="text-sm text-slate-500">Max File Size</div>
               </div>
               <div className="animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: "400ms" }}>
-                <div className="text-3xl font-bold text-blue-600">Unlimited</div>
-                <div className="text-sm text-slate-500">Storage Space</div>
+                <div className="text-3xl font-bold text-blue-600">Up to 10</div>
+                <div className="text-sm text-slate-500">Files per Upload</div>
               </div>
               <div className="animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: "500ms" }}>
-                <div className="text-3xl font-bold text-blue-600">Secure</div>
-                <div className="text-sm text-slate-500">& Private</div>
+                <div className="text-3xl font-bold text-blue-600">Private</div>
+                <div className="text-sm text-slate-500">By Default</div>
               </div>
             </div>
           </div>

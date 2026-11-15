@@ -1,55 +1,68 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import type { FileData, User } from "@/types";
 import { FileCard } from "./FileCard";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Upload, Lock } from "lucide-react";
+import { Search, Upload, Lock, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 
-interface FileData {
-  id: string;
-  name: string;
-  type: string;
-  size: number;
-  url: string;
-  created_at: string;
+interface FileGalleryProps {
+  user: User | null;
 }
 
-export const FileGallery = () => {
+export const FileGallery = ({ user }: FileGalleryProps) => {
   const [files, setFiles] = useState<FileData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(Boolean(user));
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("all");
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  const loadFiles = async () => {
+  const loadFiles = useCallback(async () => {
+    if (!user) {
+      setFiles([]);
+      setFetchError(null);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setFetchError(null);
     try {
       const data = await api.files.list();
       setFiles(data || []);
-      setIsLoggedIn(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error loading files:", error);
-      setIsLoggedIn(false);
+      const message = error instanceof Error ? error.message : "Failed to load files";
+      setFetchError(message);
       setFiles([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     loadFiles();
-  }, []);
+  }, [loadFiles]);
 
-  const handleDelete = async (id: string, url: string) => {
+  const handleDelete = async (id: string) => {
     try {
       await api.files.delete(id);
       toast.success("File deleted successfully");
-      loadFiles();
-    } catch (error: any) {
+      await loadFiles();
+    } catch (error: unknown) {
       console.error("Delete error:", error);
-      toast.error("Failed to delete file");
+      const message = error instanceof Error ? error.message : "Failed to delete file";
+      toast.error(message);
     }
+  };
+
+  const handleShareChange = (id: string, isPublic: boolean) => {
+    setFiles((prev) =>
+      prev.map((file) => (file.id === id ? { ...file, is_public: isPublic } : file))
+    );
   };
 
   const filteredFiles = files.filter((file) => {
@@ -93,6 +106,7 @@ export const FileGallery = () => {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
           <Input
+            aria-label="Search files"
             placeholder="Search files..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -100,7 +114,10 @@ export const FileGallery = () => {
           />
         </div>
         <Select value={filterType} onValueChange={setFilterType}>
-          <SelectTrigger className="w-full sm:w-48 bg-white border-slate-300 text-slate-700 focus:ring-blue-500 focus:border-blue-500">
+          <SelectTrigger
+            aria-label="Filter files by type"
+            className="w-full sm:w-48 bg-white border-slate-300 text-slate-700 focus:ring-blue-500 focus:border-blue-500"
+          >
             <SelectValue placeholder="Filter by type" />
           </SelectTrigger>
           <SelectContent className="bg-white border-slate-200 text-slate-700">
@@ -120,10 +137,25 @@ export const FileGallery = () => {
         </Select>
       </div>
 
-      {filteredFiles.length === 0 ? (
+      {fetchError ? (
+        <div className="text-center py-16 px-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
+          <div className="w-20 h-20 mx-auto rounded-2xl bg-red-100 flex items-center justify-center">
+            <AlertCircle className="w-10 h-10 text-red-500" />
+          </div>
+          <div>
+            <p className="text-lg font-medium text-slate-700 mb-1">
+              Unable to load your files
+            </p>
+            <p className="text-sm text-slate-500">{fetchError}</p>
+          </div>
+          <Button variant="outline" onClick={loadFiles}>
+            Retry
+          </Button>
+        </div>
+      ) : filteredFiles.length === 0 ? (
         <div className="text-center py-16 px-4 bg-slate-50 rounded-2xl border border-slate-200">
           <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-slate-100 flex items-center justify-center">
-            {!isLoggedIn ? (
+            {!user ? (
               <Lock className="w-10 h-10 text-slate-400" />
             ) : files.length === 0 ? (
               <Upload className="w-10 h-10 text-slate-400" />
@@ -132,10 +164,10 @@ export const FileGallery = () => {
             )}
           </div>
           <p className="text-lg font-medium text-slate-700 mb-2">
-            {!isLoggedIn ? "Login to view your files" : files.length === 0 ? "No files uploaded yet" : "No files match your search"}
+            {!user ? "Login to view your files" : files.length === 0 ? "No files uploaded yet" : "No files match your search"}
           </p>
           <p className="text-sm text-slate-500">
-            {!isLoggedIn
+            {!user
               ? "Please login to upload and manage your files"
               : files.length === 0
               ? "Start by uploading your first file!"
@@ -150,7 +182,11 @@ export const FileGallery = () => {
               className="animate-in fade-in slide-in-from-bottom-4 duration-300"
               style={{ animationDelay: `${index * 50}ms` }}
             >
-              <FileCard file={file} onDelete={() => handleDelete(file.id, file.url)} />
+              <FileCard
+                file={file}
+                onDelete={() => handleDelete(file.id)}
+                onShareChange={handleShareChange}
+              />
             </div>
           ))}
         </div>

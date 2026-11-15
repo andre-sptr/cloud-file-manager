@@ -2,6 +2,7 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { runQuery, getQuery } from '../database.js';
+import { requireAuth } from '../middleware/auth.js';
 import crypto from 'crypto';
 
 const router = express.Router();
@@ -13,15 +14,14 @@ if (!JWT_SECRET) {
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_EMAIL_LENGTH = 254;
+const MIN_PASSWORD_LENGTH = 8;
 const MAX_PASSWORD_LENGTH = 128;
-const MAX_NAME_LENGTH = 255;
-
-const sanitizeInput = (input) => {
-  return input ? input.trim() : input;
-};
 
 const validateEmail = (email) => {
-  const sanitized = sanitizeInput(email);
+  if (typeof email !== 'string') {
+    return { valid: false, error: 'Email is required' };
+  }
+  const sanitized = email.trim();
   if (!sanitized) return { valid: false, error: 'Email is required' };
   if (sanitized.length > MAX_EMAIL_LENGTH) {
     return { valid: false, error: `Email must be less than ${MAX_EMAIL_LENGTH} characters` };
@@ -32,9 +32,14 @@ const validateEmail = (email) => {
   return { valid: true, value: sanitized.toLowerCase() };
 };
 
-const validatePassword = (password) => {
-  if (!password) return { valid: false, error: 'Password is required' };
+const validatePassword = (password, { enforceMinLength = false } = {}) => {
+  if (typeof password !== 'string') {
+    return { valid: false, error: 'Password is required' };
+  }
   if (password.length < 1) return { valid: false, error: 'Password cannot be empty' };
+  if (enforceMinLength && password.length < MIN_PASSWORD_LENGTH) {
+    return { valid: false, error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` };
+  }
   if (password.length > MAX_PASSWORD_LENGTH) {
     return { valid: false, error: `Password must be less than ${MAX_PASSWORD_LENGTH} characters` };
   }
@@ -43,21 +48,23 @@ const validatePassword = (password) => {
 
 router.post('/register', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password } = req.body ?? {};
 
     const emailResult = validateEmail(email);
     if (!emailResult.valid) {
       return res.status(400).json({ error: emailResult.error });
     }
 
-    const passwordResult = validatePassword(password);
+    const passwordResult = validatePassword(password, { enforceMinLength: true });
     if (!passwordResult.valid) {
       return res.status(400).json({ error: passwordResult.error });
     }
 
     const existingUser = await getQuery('SELECT id FROM users WHERE email = ?', [emailResult.value]);
     if (existingUser) {
-      return res.status(400).json({ error: 'User already exists' });
+      return res.status(409).json({
+        error: 'Unable to complete registration with this email. If you already have an account, please sign in.'
+      });
     }
 
     const hashedPassword = await bcrypt.hash(passwordResult.value, 12);
@@ -76,14 +83,14 @@ router.post('/register', async (req, res) => {
 
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password } = req.body ?? {};
 
     const emailResult = validateEmail(email);
     if (!emailResult.valid) {
       return res.status(400).json({ error: emailResult.error });
     }
 
-    const passwordResult = validatePassword(password);
+    const passwordResult = validatePassword(password, { enforceMinLength: false });
     if (!passwordResult.valid) {
       return res.status(400).json({ error: passwordResult.error });
     }
@@ -117,24 +124,13 @@ router.post('/login', async (req, res) => {
   }
 });
 
-router.get('/session', async (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const token = authHeader.split(' ')[1];
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
-    res.json({
-      user: {
-        id: decoded.id,
-        email: decoded.email
-      }
-    });
-  } catch (err) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
+router.get('/session', requireAuth, (req, res) => {
+  res.json({
+    user: {
+      id: req.user.id,
+      email: req.user.email
+    }
+  });
 });
 
 export default router;

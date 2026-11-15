@@ -1,40 +1,62 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { api } from "@/lib/api";
+import { copyToClipboard, formatFileSize, getFileIcon } from "@/lib/utils";
+import type { FileData } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Download, File, Image, Video, Cloud, Link as LinkIcon, Play, Loader2 } from "lucide-react";
+import { Download, File, Cloud, Link as LinkIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const SharedFile = () => {
   const { id } = useParams();
-  const [file, setFile] = useState<any>(null);
+  const [file, setFile] = useState<FileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
-    const loadFile = async () => {
+    if (!id) {
+      setFile(null);
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    setFile(null);
+    setImageError(false);
+
+    const loadFile = async (fileId: string) => {
       try {
-        const data = await api.files.getShared(id);
-        setFile(data);
+        const data = await api.files.getShared(fileId);
+        if (!cancelled) {
+          setFile(data);
+        }
       } catch (error) {
         console.error("Error loading file:", error);
-        toast.error("File not found");
+        if (!cancelled) {
+          toast.error("File not found");
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
-    if (id) {
-      loadFile();
-    }
+    loadFile(id);
+
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   const downloadFile = () => {
     if (file) {
       const link = document.createElement("a");
-      link.href = file.url;
+      const separator = file.url.includes("?") ? "&" : "?";
+      link.href = `${file.url}${separator}download=1`;
       link.download = file.name;
       document.body.appendChild(link);
       link.click();
@@ -42,22 +64,13 @@ const SharedFile = () => {
     }
   };
 
-  const copyLink = () => {
-    navigator.clipboard.writeText(window.location.href);
-    toast.success("Link copied to clipboard!");
-  };
-
-  const getFileIcon = () => {
-    if (!file) return File;
-    if (file.type.startsWith("image/")) return Image;
-    if (file.type.startsWith("video/")) return Video;
-    return File;
-  };
-
-  const formatSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + " B";
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-    return (bytes / (1024 * 1024)).toFixed(2) + " MB";
+  const copyLink = async () => {
+    const copied = await copyToClipboard(window.location.href);
+    if (copied) {
+      toast.success("Link copied to clipboard!");
+    } else {
+      toast.error("Failed to copy link to clipboard");
+    }
   };
 
   if (loading) {
@@ -99,7 +112,7 @@ const SharedFile = () => {
     );
   }
 
-  const IconComponent = getFileIcon();
+  const IconComponent = getFileIcon(file.type);
   const isImage = file.type.startsWith("image/") && !imageError;
   const isVideo = file.type.startsWith("video/");
 
@@ -135,7 +148,6 @@ const SharedFile = () => {
                 src={file.url}
                 controls
                 className="w-full h-full"
-                poster={file.thumbnail || undefined}
               >
                 <track kind="captions" />
               </video>
@@ -154,7 +166,7 @@ const SharedFile = () => {
                 {file.name}
               </h1>
               <p className="text-slate-500">
-                {formatSize(file.size)} &bull; {file.type}
+                {formatFileSize(file.size, 2)} &bull; {file.type}
               </p>
             </div>
 

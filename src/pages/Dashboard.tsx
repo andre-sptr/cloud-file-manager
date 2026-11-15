@@ -13,7 +13,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import type { User } from "@/types";
@@ -34,6 +33,7 @@ const Dashboard = () => {
           setUser(session.user);
         }
       } catch (err) {
+        console.error("Failed to verify session:", err);
       } finally {
         setLoading(false);
       }
@@ -43,6 +43,11 @@ const Dashboard = () => {
   }, []);
 
   const scrollToUpload = () => {
+    if (!user) {
+      setShowLoginDialog(true);
+      return;
+    }
+    setActiveTab("upload");
     document.getElementById("dashboard")?.scrollIntoView({ behavior: "smooth" });
   };
 
@@ -50,12 +55,12 @@ const Dashboard = () => {
     document.getElementById("features")?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const handleUploadClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    if (!user) {
-      e.preventDefault();
+  const handleTabChange = (nextTab: string) => {
+    if (nextTab === "upload" && !user) {
       setShowLoginDialog(true);
-      setActiveTab("gallery");
+      return;
     }
+    setActiveTab(nextTab);
   };
 
   const goToLogin = () => {
@@ -93,7 +98,7 @@ const Dashboard = () => {
               </p>
             </div>
 
-            <Tabs defaultValue="gallery" value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
               <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8 bg-slate-100 p-1">
                 <TabsTrigger
                   value="gallery"
@@ -104,24 +109,20 @@ const Dashboard = () => {
                 <TabsTrigger
                   value="upload"
                   className="data-[state=active]:bg-white data-[state=active]:shadow-sm text-slate-600"
-                  onClick={handleUploadClick}
                 >
                   Upload
                 </TabsTrigger>
               </TabsList>
 
               <TabsContent value="gallery" className="animate-in fade-in duration-300">
-                <FileGallery />
+                <FileGallery user={user} />
               </TabsContent>
 
               <TabsContent value="upload" className="animate-in fade-in duration-300">
                 <div className="max-w-3xl mx-auto">
                   <FileUpload
                     onUploadComplete={() => {
-                      const galleryTab = document.querySelector(
-                        '[value="gallery"]'
-                      ) as HTMLElement;
-                      galleryTab?.click();
+                      setActiveTab("gallery");
                     }}
                   />
                 </div>
