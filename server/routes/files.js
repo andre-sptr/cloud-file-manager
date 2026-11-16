@@ -271,6 +271,7 @@ const verifyFileContent = async (filePath, mimetype) => {
 const formatOwnerFile = (file) => ({
   id: file.id,
   owner_id: file.owner_id,
+  folder_id: file.folder_id || null,
   name: file.name,
   type: file.type,
   size: file.size,
@@ -403,7 +404,7 @@ const uploadMiddleware = (req, res, next) => {
 router.get('/', requireAuth, async (req, res) => {
   try {
     const files = await allQuery(
-      'SELECT id, owner_id, name, type, size, is_public, created_at FROM files WHERE owner_id = ? ORDER BY created_at DESC',
+      'SELECT id, owner_id, folder_id, name, type, size, is_public, created_at FROM files WHERE owner_id = ? ORDER BY created_at DESC',
       [req.user.id]
     );
     res.json(files.map(formatOwnerFile));
@@ -503,6 +504,44 @@ router.patch('/:id/share', requireAuth, async (req, res) => {
   }
 });
 
+router.patch('/:id/move', requireAuth, async (req, res) => {
+  try {
+    const fileId = req.params.id;
+    if (!UUID_REGEX.test(fileId)) {
+      return res.status(400).json({ error: 'Invalid file ID format' });
+    }
+
+    let targetFolderId = null;
+    if (req.body?.folder_id !== undefined && req.body?.folder_id !== null && req.body?.folder_id !== '') {
+      if (typeof req.body.folder_id !== 'string' || !UUID_REGEX.test(req.body.folder_id)) {
+        return res.status(400).json({ error: 'Invalid folder ID format' });
+      }
+      const folder = await getQuery(
+        'SELECT id FROM folders WHERE id = ? AND owner_id = ?',
+        [req.body.folder_id, req.user.id]
+      );
+      if (!folder) {
+        return res.status(404).json({ error: 'Folder not found' });
+      }
+      targetFolderId = folder.id;
+    }
+
+    const result = await runQuery(
+      'UPDATE files SET folder_id = ? WHERE id = ? AND owner_id = ?',
+      [targetFolderId, fileId, req.user.id]
+    );
+
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    res.json({ id: fileId, folder_id: targetFolderId });
+  } catch (error) {
+    console.error('Move file error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 router.post('/upload', requireAuth, uploadMiddleware, async (req, res) => {
   const uploadedFiles = req.files || [];
 
@@ -514,6 +553,24 @@ router.post('/upload', requireAuth, uploadMiddleware, async (req, res) => {
     if (uploadedFiles.length > MAX_FILES_UPLOAD) {
       await cleanupUploadedFiles(uploadedFiles);
       return res.status(400).json({ error: `Maximum ${MAX_FILES_UPLOAD} files per upload` });
+    }
+
+    let targetFolderId = null;
+    const rawFolderId = typeof req.body?.folder_id === 'string' ? req.body.folder_id.trim() : '';
+    if (rawFolderId) {
+      if (!UUID_REGEX.test(rawFolderId)) {
+        await cleanupUploadedFiles(uploadedFiles);
+        return res.status(400).json({ error: 'Invalid folder ID format' });
+      }
+      const folder = await getQuery(
+        'SELECT id FROM folders WHERE id = ? AND owner_id = ?',
+        [rawFolderId, req.user.id]
+      );
+      if (!folder) {
+        await cleanupUploadedFiles(uploadedFiles);
+        return res.status(404).json({ error: 'Target folder not found' });
+      }
+      targetFolderId = folder.id;
     }
 
     for (const file of uploadedFiles) {
@@ -533,14 +590,15 @@ router.post('/upload', requireAuth, uploadMiddleware, async (req, res) => {
         const utcTimestamp = new Date().toISOString();
 
         await runQuery(
-          'INSERT INTO files (id, owner_id, name, type, size, url, is_public, created_at) VALUES (?, ?, ?, ?, ?, ?, 0, ?)',
-          [id, req.user.id, sanitizedName, file.mimetype, file.size, storagePath, utcTimestamp]
+          'INSERT INTO files (id, owner_id, folder_id, name, type, size, url, is_public, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)',
+          [id, req.user.id, targetFolderId, sanitizedName, file.mimetype, file.size, storagePath, utcTimestamp]
         );
 
         inserted.push(
           formatOwnerFile({
             id,
             owner_id: req.user.id,
+            folder_id: targetFolderId,
             name: sanitizedName,
             type: file.mimetype,
             size: file.size,

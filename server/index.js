@@ -7,6 +7,7 @@ import { rateLimit } from 'express-rate-limit';
 import db, { initDb } from './database.js';
 import authRoutes from './routes/auth.js';
 import fileRoutes from './routes/files.js';
+import folderRoutes from './routes/folders.js';
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -89,6 +90,7 @@ app.use('/api/auth/register', authLimiter);
 app.use('/api/auth/google', authLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/files', fileRoutes);
+app.use('/api/folders', folderRoutes);
 app.use((_req, res) => {
   res.status(404).json({ error: 'Not found' });
 });

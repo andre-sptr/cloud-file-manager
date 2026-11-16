@@ -1,5 +1,13 @@
 import { API_BASE, STORAGE_KEYS } from './constants';
-import type { User, LoginResponse, FileData, AuthSession, AuthConfig } from '@/types';
+import type {
+  User,
+  LoginResponse,
+  FileData,
+  FolderData,
+  DeleteFolderResponse,
+  AuthSession,
+  AuthConfig,
+} from '@/types';
 
 const AUTH_CLEARED_EVENT = 'vps-file-hub:auth-cleared';
 
@@ -217,7 +225,26 @@ export const api = {
       }
       return res.blob();
     },
-    upload: (files: File[], onProgress?: (percent: number) => void, signal?: AbortSignal): Promise<FileData[]> => {
+    move: async (id: string, folderId: string | null): Promise<{ id: string; folder_id: string | null }> => {
+      const res = await fetch(`${API_BASE}/files/${encodeURIComponent(id)}/move`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify({ folder_id: folderId }),
+      });
+      if (!res.ok) {
+        throw await buildHttpError(res, 'Failed to move file');
+      }
+      return res.json();
+    },
+    upload: (
+      files: File[],
+      onProgress?: (percent: number) => void,
+      signal?: AbortSignal,
+      folderId?: string | null
+    ): Promise<FileData[]> => {
       return new Promise((resolve, reject) => {
         if (signal?.aborted) {
           reject(new Error('Upload was cancelled'));
@@ -225,6 +252,9 @@ export const api = {
         }
 
         const formData = new FormData();
+        if (folderId) {
+          formData.append('folder_id', folderId);
+        }
         for (const file of files) {
           formData.append('files', file);
         }
@@ -302,5 +332,55 @@ export const api = {
       }
       return res.json();
     }
+  },
+  folders: {
+    list: async (signal?: AbortSignal): Promise<FolderData[]> => {
+      const res = await fetch(`${API_BASE}/folders`, {
+        headers: getAuthHeaders(),
+        signal,
+      });
+      if (!res.ok) {
+        throw await buildHttpError(res, 'Failed to fetch folders');
+      }
+      return res.json();
+    },
+    create: async (name: string, parentId: string | null = null): Promise<FolderData> => {
+      const res = await fetch(`${API_BASE}/folders`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify({ name, parent_id: parentId }),
+      });
+      if (!res.ok) {
+        throw await buildHttpError(res, 'Failed to create folder');
+      }
+      return res.json();
+    },
+    rename: async (id: string, name: string): Promise<FolderData> => {
+      const res = await fetch(`${API_BASE}/folders/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) {
+        throw await buildHttpError(res, 'Failed to rename folder');
+      }
+      return res.json();
+    },
+    delete: async (id: string): Promise<DeleteFolderResponse> => {
+      const res = await fetch(`${API_BASE}/folders/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) {
+        throw await buildHttpError(res, 'Failed to delete folder');
+      }
+      return res.json();
+    },
   }
 };

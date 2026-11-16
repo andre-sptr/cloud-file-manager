@@ -1,23 +1,57 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useDropzone, type FileRejection } from "react-dropzone";
-import { Upload, X } from "lucide-react";
+import { Folder, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { api } from "@/lib/api";
 import { MAX_FILES_UPLOAD, MAX_FILE_SIZE, MAX_FILE_SIZE_MB } from "@/lib/constants";
+import { buildFolderOptions } from "@/lib/folders";
 import { formatFileSize, getFileIcon } from "@/lib/utils";
+import type { FolderData } from "@/types";
 import { toast } from "sonner";
+
+const ROOT_FOLDER_VALUE = "__root__";
 
 interface FileUploadProps {
   onUploadComplete: () => void;
+  folders?: FolderData[];
+  selectedFolderId?: string | null;
+  onSelectFolder?: (folderId: string | null) => void;
 }
 
-export const FileUpload = ({ onUploadComplete }: FileUploadProps) => {
+export const FileUpload = ({
+  onUploadComplete,
+  folders = [],
+  selectedFolderId = null,
+  onSelectFolder,
+}: FileUploadProps) => {
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [localFolderId, setLocalFolderId] = useState<string | null>(selectedFolderId);
   const mountedRef = useRef(true);
   const uploadAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    setLocalFolderId(selectedFolderId ?? null);
+  }, [selectedFolderId]);
+
+  const activeFolderId = onSelectFolder ? selectedFolderId ?? null : localFolderId;
+  const folderOptions = useMemo(() => buildFolderOptions(folders), [folders]);
+
+  const handleFolderValueChange = (value: string) => {
+    const nextId = value === ROOT_FOLDER_VALUE ? null : value;
+    setLocalFolderId(nextId);
+    onSelectFolder?.(nextId);
+  };
 
   useEffect(() => {
     mountedRef.current = true;
@@ -105,7 +139,8 @@ export const FileUpload = ({ onUploadComplete }: FileUploadProps) => {
             setUploadProgress(percent);
           }
         },
-        controller.signal
+        controller.signal,
+        activeFolderId
       );
 
       if (!mountedRef.current) return;
@@ -139,6 +174,50 @@ export const FileUpload = ({ onUploadComplete }: FileUploadProps) => {
 
   return (
     <div className="space-y-6">
+      <div className="rounded-xl border border-slate-200/90 bg-white/90 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+            <Folder className="w-4 h-4 text-blue-600" aria-hidden="true" />
+          </div>
+          <div className="min-w-0">
+            <Label
+              htmlFor="upload-destination-folder"
+              className="text-xs font-semibold text-slate-900 block"
+            >
+              Destination Folder
+            </Label>
+            <p className="text-[11px] text-slate-500">
+              Choose where uploaded files will be stored
+            </p>
+          </div>
+        </div>
+        <Select
+          value={
+            activeFolderId && folderOptions.some((opt) => opt.folder.id === activeFolderId)
+              ? activeFolderId
+              : ROOT_FOLDER_VALUE
+          }
+          onValueChange={handleFolderValueChange}
+          disabled={uploading}
+        >
+          <SelectTrigger
+            id="upload-destination-folder"
+            aria-label="Destination folder"
+            className="w-full sm:w-64 min-h-[40px] bg-white border-slate-300 text-slate-800"
+          >
+            <SelectValue placeholder="All Files (Root)" />
+          </SelectTrigger>
+          <SelectContent className="bg-white border-slate-200 max-h-64">
+            <SelectItem value={ROOT_FOLDER_VALUE}>All Files (Root)</SelectItem>
+            {folderOptions.map(({ folder, path }) => (
+              <SelectItem key={folder.id} value={folder.id}>
+                {path}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       <div
         {...getRootProps()}
         className={`

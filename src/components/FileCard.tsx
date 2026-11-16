@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Download, Trash2, Share2, Play, Lock, Globe } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Download, Trash2, Share2, Play, Lock, Globe, Folder, FolderInput, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -20,9 +20,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { api } from "@/lib/api";
+import { buildFolderOptions } from "@/lib/folders";
 import { copyToClipboard, formatFileSize, getFileIcon } from "@/lib/utils";
-import type { FileData } from "@/types";
+import type { FileData, FolderData } from "@/types";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 
@@ -30,11 +39,22 @@ interface FileCardProps {
   file: FileData;
   onDelete: () => void;
   onShareChange?: (id: string, isPublic: boolean) => void;
+  folders?: FolderData[];
+  onMoveToFolder?: (fileId: string, folderId: string | null) => Promise<void> | void;
+  showFolderBadge?: boolean;
 }
 
-export const FileCard = ({ file, onDelete, onShareChange }: FileCardProps) => {
+export const FileCard = ({
+  file,
+  onDelete,
+  onShareChange,
+  folders = [],
+  onMoveToFolder,
+  showFolderBadge = false,
+}: FileCardProps) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUpdatingShare, setIsUpdatingShare] = useState(false);
+  const [isMoving, setIsMoving] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [mediaPreviewOpen, setMediaPreviewOpen] = useState(false);
@@ -45,6 +65,13 @@ export const FileCard = ({ file, onDelete, onShareChange }: FileCardProps) => {
   const isVideo = file.type.startsWith("video/");
   const isAudio = file.type.startsWith("audio/");
   const isPublic = Boolean(file.is_public);
+  const currentFolderId = file.folder_id ?? null;
+
+  const folderOptions = useMemo(() => buildFolderOptions(folders), [folders]);
+  const currentFolderLabel = useMemo(() => {
+    if (!currentFolderId) return null;
+    return folderOptions.find((option) => option.folder.id === currentFolderId)?.path ?? null;
+  }, [currentFolderId, folderOptions]);
 
   useEffect(() => {
     if (!isImage) {
@@ -178,6 +205,19 @@ export const FileCard = ({ file, onDelete, onShareChange }: FileCardProps) => {
     }
   };
 
+  const handleMove = async (targetFolderId: string | null) => {
+    if (!onMoveToFolder || targetFolderId === currentFolderId || isMoving) {
+      return;
+    }
+
+    setIsMoving(true);
+    try {
+      await onMoveToFolder(file.id, targetFolderId);
+    } finally {
+      setIsMoving(false);
+    }
+  };
+
   return (
     <Card className="group overflow-hidden hover:shadow-xl transition-all duration-300 bg-white border-slate-200">
       <div className="relative aspect-video bg-slate-100 flex items-center justify-center overflow-hidden">
@@ -249,6 +289,12 @@ export const FileCard = ({ file, onDelete, onShareChange }: FileCardProps) => {
               {formatDistanceToNow(new Date(file.created_at), { addSuffix: true })}
             </span>
           </div>
+          {showFolderBadge && currentFolderLabel && (
+            <div className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-md border border-blue-100 bg-blue-50/70 px-2 py-0.5 text-[11px] font-medium text-blue-700">
+              <Folder className="w-3 h-3 shrink-0" aria-hidden="true" />
+              <span className="truncate">{currentFolderLabel}</span>
+            </div>
+          )}
         </div>
 
         <div className="flex gap-2">
@@ -261,6 +307,71 @@ export const FileCard = ({ file, onDelete, onShareChange }: FileCardProps) => {
             <Download className="w-4 h-4 mr-1" />
             Download
           </Button>
+          {onMoveToFolder && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isMoving}
+                  aria-label={`Move ${file.name} to folder`}
+                  title="Move to folder"
+                  className="border-slate-300 text-slate-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700"
+                >
+                  <FolderInput className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="w-60 bg-white border-slate-200 max-h-64 overflow-y-auto"
+              >
+                <DropdownMenuLabel className="text-[11px] font-mono uppercase tracking-[0.08em] text-slate-500">
+                  Move to folder
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={() => handleMove(null)}
+                  disabled={currentFolderId === null || isMoving}
+                  className="flex items-center justify-between gap-2 cursor-pointer"
+                >
+                  <span className="flex items-center gap-2 min-w-0">
+                    <Folder className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden="true" />
+                    <span className="truncate">All Files (Root)</span>
+                  </span>
+                  {currentFolderId === null && (
+                    <Check className="w-3.5 h-3.5 text-blue-600 shrink-0" aria-hidden="true" />
+                  )}
+                </DropdownMenuItem>
+                {folderOptions.length === 0 ? (
+                  <DropdownMenuItem disabled className="text-xs text-slate-400">
+                    No folders created yet
+                  </DropdownMenuItem>
+                ) : (
+                  folderOptions.map(({ folder, path }) => {
+                    const isCurrent = currentFolderId === folder.id;
+                    return (
+                      <DropdownMenuItem
+                        key={folder.id}
+                        onSelect={() => handleMove(folder.id)}
+                        disabled={isCurrent || isMoving}
+                        className="flex items-center justify-between gap-2 cursor-pointer"
+                      >
+                        <span className="flex items-center gap-2 min-w-0">
+                          <Folder className="w-3.5 h-3.5 text-blue-600 shrink-0" aria-hidden="true" />
+                          <span className="truncate" title={path}>
+                            {path}
+                          </span>
+                        </span>
+                        {isCurrent && (
+                          <Check className="w-3.5 h-3.5 text-blue-600 shrink-0" aria-hidden="true" />
+                        )}
+                      </DropdownMenuItem>
+                    );
+                  })
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           <Button
             variant="outline"
             size="sm"

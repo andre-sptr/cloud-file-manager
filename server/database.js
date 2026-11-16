@@ -29,16 +29,30 @@ export const initDb = async () => {
   `);
 
   await runQuery(`
+    CREATE TABLE IF NOT EXISTS folders (
+      id TEXT PRIMARY KEY,
+      owner_id TEXT NOT NULL,
+      parent_id TEXT,
+      name TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(owner_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY(parent_id) REFERENCES folders(id) ON DELETE CASCADE
+    )
+  `);
+
+  await runQuery(`
     CREATE TABLE IF NOT EXISTS files (
       id TEXT PRIMARY KEY,
       owner_id TEXT NOT NULL,
+      folder_id TEXT,
       name TEXT NOT NULL,
       type TEXT NOT NULL,
       size INTEGER NOT NULL,
       url TEXT NOT NULL,
       is_public INTEGER NOT NULL DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY(owner_id) REFERENCES users(id) ON DELETE CASCADE
+      FOREIGN KEY(owner_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY(folder_id) REFERENCES folders(id) ON DELETE SET NULL
     )
   `);
 
@@ -60,8 +74,20 @@ export const initDb = async () => {
   if (!hasIsPublic) {
     await runQuery('ALTER TABLE files ADD COLUMN is_public INTEGER NOT NULL DEFAULT 0');
   }
+  const hasFolderId = columns.some((col) => col.name === 'folder_id');
+  if (!hasFolderId) {
+    await runQuery('ALTER TABLE files ADD COLUMN folder_id TEXT REFERENCES folders(id) ON DELETE SET NULL');
+  }
 
+  await runQuery('CREATE INDEX IF NOT EXISTS idx_folders_owner_parent ON folders(owner_id, parent_id)');
+  await runQuery(
+    'CREATE UNIQUE INDEX IF NOT EXISTS idx_folders_unique_root_name ON folders(owner_id, lower(name)) WHERE parent_id IS NULL'
+  );
+  await runQuery(
+    'CREATE UNIQUE INDEX IF NOT EXISTS idx_folders_unique_child_name ON folders(owner_id, parent_id, lower(name)) WHERE parent_id IS NOT NULL'
+  );
   await runQuery('CREATE INDEX IF NOT EXISTS idx_files_owner_id ON files(owner_id)');
+  await runQuery('CREATE INDEX IF NOT EXISTS idx_files_owner_folder ON files(owner_id, folder_id)');
 };
 
 export const runQuery = (sql, params = []) => {

@@ -1,16 +1,24 @@
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   ArrowUpRight,
   Cloud,
   FolderOpen,
+  FolderPlus,
   Lock,
   ShieldCheck,
   Upload,
 } from "lucide-react";
+import { toast } from "sonner";
 import { api, subscribeAuthCleared } from "@/lib/api";
 import { MAX_FILES_UPLOAD, MAX_FILE_SIZE_MB } from "@/lib/constants";
+import {
+  MAX_FOLDER_DEPTH,
+  buildFolderOptions,
+  getFolderDepth,
+  validateFolderNameInput,
+} from "@/lib/folders";
 import { Navbar } from "@/components/Navbar";
 import { Hero } from "@/components/Hero";
 import { Features } from "@/components/Features";
@@ -26,8 +34,19 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import type { User } from "@/types";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import type { FolderData, User } from "@/types";
 import { scrollToSection } from "@/lib/scroll";
+
+const ROOT_FOLDER_VALUE = "__root__";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -35,6 +54,17 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("gallery");
   const [showLoginDialog, setShowLoginDialog] = useState(false);
+
+  const [folders, setFolders] = useState<FolderData[]>([]);
+  const [foldersLoading, setFoldersLoading] = useState(false);
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  const [filesRefreshKey, setFilesRefreshKey] = useState(0);
+
+  const [showCreateFolderDialog, setShowCreateFolderDialog] = useState(false);
+  const [createFolderName, setCreateFolderName] = useState("");
+  const [createFolderParentId, setCreateFolderParentId] = useState<string | null>(null);
+  const [createFolderError, setCreateFolderError] = useState<string | null>(null);
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -62,6 +92,9 @@ const Dashboard = () => {
     const unsubscribe = subscribeAuthCleared(() => {
       if (!cancelled) {
         setUser(null);
+        setFolders([]);
+        setCurrentFolderId(null);
+        setShowCreateFolderDialog(false);
         setActiveTab("gallery");
       }
     });
@@ -71,6 +104,125 @@ const Dashboard = () => {
       unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setFolders([]);
+      setFoldersLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setFoldersLoading(true);
+
+    api.folders
+      .list(controller.signal)
+      .then((data) => {
+        if (!controller.signal.aborted) {
+          setFolders(data || []);
+        }
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+        console.error("Failed to load folders:", error);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setFoldersLoading(false);
+        }
+      });
+
+    return () => {
+      controller.abort();
+    };
+  }, [user]);
+
+  const validParentFolderOptions = useMemo(() => {
+    return buildFolderOptions(folders).filter(
+      ({ folder }) => getFolderDepth(folders, folder.id) < MAX_FOLDER_DEPTH
+    );
+  }, [folders]);
+
+  const openCreateFolderModal = useCallback(() => {
+    if (!user) {
+      setShowLoginDialog(true);
+      return;
+    }
+    const canUseCurrentAsParent =
+      currentFolderId !== null && getFolderDepth(folders, currentFolderId) < MAX_FOLDER_DEPTH;
+    setCreateFolderParentId(canUseCurrentAsParent ? currentFolderId : null);
+    setCreateFolderName("");
+    setCreateFolderError(null);
+    setShowCreateFolderDialog(true);
+  }, [user, currentFolderId, folders]);
+
+  const handleCreateFolderSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || isCreatingFolder) return;
+
+    const validation = validateFolderNameInput(createFolderName);
+    if (!validation.valid) {
+      setCreateFolderError(validation.error || "Invalid folder name");
+      return;
+    }
+
+    setIsCreatingFolder(true);
+    setCreateFolderError(null);
+    try {
+      const created = await api.folders.create(validation.value, createFolderParentId);
+      setFolders((prev) =>
+        [...prev, created].sort((a, b) =>
+          a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+        )
+      );
+      if (activeTab === "upload") {
+        setCurrentFolderId(created.id);
+      }
+      setShowCreateFolderDialog(false);
+      setCreateFolderName("");
+      toast.success(`Folder "${created.name}" created`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to create folder";
+      setCreateFolderError(message);
+    } finally {
+      setIsCreatingFolder(false);
+    }
+  };
+
+  const handleRenameFolder = async (folderId: string, name: string) => {
+    const updated = await api.folders.rename(folderId, name);
+    setFolders((prev) =>
+      prev
+        .map((folder) => (folder.id === folderId ? updated : folder))
+        .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }))
+    );
+    toast.success(`Folder renamed to "${updated.name}"`);
+  };
+
+  const handleDeleteFolder = async (folderId: string) => {
+    const targetFolder = folders.find((folder) => folder.id === folderId) || null;
+    try {
+      const result = await api.folders.delete(folderId);
+      const deletedSet = new Set(result.deletedFolderIds || [folderId]);
+
+      setFolders((prev) => prev.filter((folder) => !deletedSet.has(folder.id)));
+      setCurrentFolderId((prevId) => {
+        if (!prevId || !deletedSet.has(prevId)) {
+          return prevId;
+        }
+        const fallbackParent = targetFolder?.parent_id ?? null;
+        return fallbackParent && !deletedSet.has(fallbackParent) ? fallbackParent : null;
+      });
+      setFilesRefreshKey((prev) => prev + 1);
+      toast.success("Folder deleted. Files inside were moved back to All Files.");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to delete folder";
+      toast.error(message);
+      throw error;
+    }
+  };
 
   const scrollToUpload = () => {
     if (!user) {
@@ -244,39 +396,67 @@ const Dashboard = () => {
                       </span>
                     </div>
 
-                    {activeTab === "gallery" ? (
+                    <div className="flex flex-wrap items-center gap-2">
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleTabChange("upload")}
-                        className="min-h-[36px] px-2.5 text-xs font-semibold text-blue-700 hover:bg-blue-50 hover:text-blue-800"
+                        onClick={openCreateFolderModal}
+                        className="min-h-[36px] px-2.5 text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700"
                       >
-                        <Upload className="w-3.5 h-3.5" aria-hidden="true" />
-                        <span>Upload files</span>
+                        <FolderPlus className="w-3.5 h-3.5" aria-hidden="true" />
+                        <span>New folder</span>
                       </Button>
-                    ) : (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleTabChange("gallery")}
-                        className="min-h-[36px] px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-950"
-                      >
-                        <FolderOpen className="w-3.5 h-3.5" aria-hidden="true" />
-                        <span>Back to gallery</span>
-                      </Button>
-                    )}
+
+                      {activeTab === "gallery" ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleTabChange("upload")}
+                          className="min-h-[36px] px-2.5 text-xs font-semibold text-blue-700 hover:bg-blue-50 hover:text-blue-800"
+                        >
+                          <Upload className="w-3.5 h-3.5" aria-hidden="true" />
+                          <span>Upload files</span>
+                        </Button>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleTabChange("gallery")}
+                          className="min-h-[36px] px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-950"
+                        >
+                          <FolderOpen className="w-3.5 h-3.5" aria-hidden="true" />
+                          <span>Back to gallery</span>
+                        </Button>
+                      )}
+                    </div>
                   </div>
 
                   <TabsContent value="gallery" className="mt-0">
-                    <FileGallery user={user} />
+                    <FileGallery
+                      user={user}
+                      folders={folders}
+                      foldersLoading={foldersLoading}
+                      currentFolderId={currentFolderId}
+                      refreshKey={filesRefreshKey}
+                      onNavigateFolder={setCurrentFolderId}
+                      onCreateFolderRequest={openCreateFolderModal}
+                      onRenameFolder={handleRenameFolder}
+                      onDeleteFolder={handleDeleteFolder}
+                      onUploadRequest={() => handleTabChange("upload")}
+                    />
                   </TabsContent>
 
                   <TabsContent value="upload" className="mt-0">
                     <div className="max-w-3xl mx-auto">
                       <FileUpload
+                        folders={folders}
+                        selectedFolderId={currentFolderId}
+                        onSelectFolder={setCurrentFolderId}
                         onUploadComplete={() => {
+                          setFilesRefreshKey((prev) => prev + 1);
                           setActiveTab("gallery");
                         }}
                       />
@@ -372,11 +552,11 @@ const Dashboard = () => {
               </span>
             </div>
             <DialogTitle className="text-xl font-bold tracking-tight text-slate-950">
-              Sign in to upload files
+              Sign in to manage workspace
             </DialogTitle>
             <DialogDescription className="text-sm leading-relaxed text-slate-600">
-              Uploads are scoped to authenticated accounts so every file stays private on your
-              server until you choose to share it.
+              Uploads and folders are scoped to authenticated accounts so every file stays private
+              on your server until you choose to share it.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="pt-2 gap-2 sm:gap-2">
@@ -400,6 +580,116 @@ const Dashboard = () => {
               />
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={showCreateFolderDialog}
+        onOpenChange={(open) => {
+          if (!isCreatingFolder) {
+            setShowCreateFolderDialog(open);
+            if (!open) {
+              setCreateFolderError(null);
+            }
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[440px] rounded-xl border-slate-300/90 bg-white/95 backdrop-blur-md p-6 shadow-[0_20px_50px_-12px_rgba(15,23,42,0.18)]">
+          <DialogHeader className="space-y-2.5 text-left">
+            <div className="inline-flex items-center gap-2.5">
+              <span
+                className="w-9 h-9 rounded-lg border border-blue-200 bg-blue-50/80 flex items-center justify-center text-blue-700 shrink-0"
+                aria-hidden="true"
+              >
+                <FolderPlus className="w-4 h-4" />
+              </span>
+              <span className="text-[11px] font-mono uppercase tracking-[0.14em] text-blue-700 font-semibold">
+                Workspace Folder
+              </span>
+            </div>
+            <DialogTitle className="text-xl font-bold tracking-tight text-slate-950">
+              Create new folder
+            </DialogTitle>
+            <DialogDescription className="text-sm leading-relaxed text-slate-600">
+              Group related documents and media neatly without affecting any shared file URLs.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleCreateFolderSubmit} className="space-y-4 pt-1">
+            <div className="space-y-2">
+              <Label htmlFor="create-folder-name" className="text-slate-800">
+                Folder name
+              </Label>
+              <Input
+                id="create-folder-name"
+                value={createFolderName}
+                onChange={(e) => {
+                  setCreateFolderName(e.target.value);
+                  if (createFolderError) setCreateFolderError(null);
+                }}
+                placeholder="e.g., Client Invoices"
+                maxLength={100}
+                autoFocus
+                disabled={isCreatingFolder}
+                aria-invalid={Boolean(createFolderError)}
+                className="min-h-[42px] bg-white border-slate-300 text-slate-900"
+              />
+              {createFolderError && (
+                <p className="text-xs font-medium text-red-600" role="alert">
+                  {createFolderError}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="create-folder-parent" className="text-slate-800">
+                Location
+              </Label>
+              <Select
+                value={createFolderParentId ?? ROOT_FOLDER_VALUE}
+                onValueChange={(value) => {
+                  setCreateFolderParentId(value === ROOT_FOLDER_VALUE ? null : value);
+                  if (createFolderError) setCreateFolderError(null);
+                }}
+                disabled={isCreatingFolder}
+              >
+                <SelectTrigger
+                  id="create-folder-parent"
+                  aria-label="Parent folder location"
+                  className="min-h-[42px] bg-white border-slate-300 text-slate-800"
+                >
+                  <SelectValue placeholder="All Files (Root)" />
+                </SelectTrigger>
+                <SelectContent className="bg-white border-slate-200 max-h-60">
+                  <SelectItem value={ROOT_FOLDER_VALUE}>All Files (Root)</SelectItem>
+                  {validParentFolderOptions.map(({ folder, path }) => (
+                    <SelectItem key={folder.id} value={folder.id}>
+                      {path}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <DialogFooter className="pt-2 gap-2 sm:gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowCreateFolderDialog(false)}
+                disabled={isCreatingFolder}
+                className="min-h-[42px] border-slate-300 text-slate-800 hover:bg-slate-100"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isCreatingFolder}
+                className="min-h-[42px] bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white"
+              >
+                {isCreatingFolder ? "Creating..." : "Create Folder"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

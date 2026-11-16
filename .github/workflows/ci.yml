@@ -51,3 +51,4 @@ jobs:
           node --check middleware/auth.js
           node --check routes/auth.js
           node --check routes/files.js
+          node --check routes/folders.js
