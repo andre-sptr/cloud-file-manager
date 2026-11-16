@@ -4,7 +4,7 @@ A self-hosted file hosting and sharing web application built with React, TypeScr
 
 ## Features
 
-- **JWT Authentication**: Register and sign in with email and password (minimum 8 characters), hashed with `bcryptjs` and persisted in SQLite.
+- **JWT Authentication**: Register and sign in with email and password (minimum 8 characters, hashed with `bcryptjs`), or sign in/up with a Google account (`GOOGLE_CLIENT_ID`), persisted in SQLite.
 - **Multi-File Upload**: Drag-and-drop or browse up to 10 files per batch (up to 15 MB per file) with real-time upload progress and cancellation support.
 - **Server-Side File Validation**: Validates MIME types, extensions, and file signatures/content before storing files on disk (`server/uploads/`).
 - **Private by Default**: Uploaded files are private (`is_public = 0`) and served only through authenticated endpoints (`/api/files/:id/content`), never exposed as static uploads.
@@ -31,6 +31,7 @@ NODE_ENV=development
 TRUST_PROXY=loopback
 JWT_SECRET=replace-with-a-long-random-secret
 ALLOWED_ORIGINS=http://localhost:8080,http://localhost:5173
+GOOGLE_CLIENT_ID=your-google-oauth-client-id.apps.googleusercontent.com
 ```
 
 ## Running Locally

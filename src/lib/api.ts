@@ -1,5 +1,5 @@
 import { API_BASE, STORAGE_KEYS } from './constants';
-import type { User, LoginResponse, FileData, AuthSession } from '@/types';
+import type { User, LoginResponse, FileData, AuthSession, AuthConfig } from '@/types';
 
 const AUTH_CLEARED_EVENT = 'vps-file-hub:auth-cleared';
 
@@ -93,6 +93,35 @@ export const api = {
       });
       if (!res.ok) {
         throw new Error(await parseErrorMessage(res, 'Failed to login'));
+      }
+      const data: LoginResponse = await res.json();
+      localStorage.setItem(STORAGE_KEYS.TOKEN, data.token);
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(data.user));
+      return data;
+    },
+    getConfig: async (): Promise<AuthConfig> => {
+      try {
+        const res = await fetch(`${API_BASE}/auth/config`);
+        if (!res.ok) {
+          return { googleClientId: null, googleEnabled: false };
+        }
+        const data = await res.json();
+        return {
+          googleClientId: typeof data?.googleClientId === 'string' && data.googleClientId ? data.googleClientId : null,
+          googleEnabled: Boolean(data?.googleEnabled),
+        };
+      } catch {
+        return { googleClientId: null, googleEnabled: false };
+      }
+    },
+    signInWithGoogle: async (credential: string): Promise<LoginResponse> => {
+      const res = await fetch(`${API_BASE}/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential }),
+      });
+      if (!res.ok) {
+        throw new Error(await parseErrorMessage(res, 'Failed to authenticate with Google'));
       }
       const data: LoginResponse = await res.json();
       localStorage.setItem(STORAGE_KEYS.TOKEN, data.token);

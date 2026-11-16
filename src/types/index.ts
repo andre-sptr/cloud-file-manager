@@ -27,3 +27,8 @@ export interface LoginResponse {
   token: string;
   user: Pick<User, 'id' | 'email'>;
 }
+
+export interface AuthConfig {
+  googleClientId: string | null;
+  googleEnabled: boolean;
+}

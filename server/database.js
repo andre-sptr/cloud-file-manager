@@ -42,6 +42,19 @@ export const initDb = async () => {
     )
   `);
 
+  const userColumns = await allQuery('PRAGMA table_info(users)');
+  const hasGoogleSub = userColumns.some((col) => col.name === 'google_sub');
+  if (!hasGoogleSub) {
+    await runQuery('ALTER TABLE users ADD COLUMN google_sub TEXT');
+  }
+  const hasAuthProvider = userColumns.some((col) => col.name === 'auth_provider');
+  if (!hasAuthProvider) {
+    await runQuery("ALTER TABLE users ADD COLUMN auth_provider TEXT NOT NULL DEFAULT 'local'");
+  }
+  await runQuery(
+    'CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_sub ON users(google_sub) WHERE google_sub IS NOT NULL'
+  );
+
   const columns = await allQuery('PRAGMA table_info(files)');
   const hasIsPublic = columns.some((col) => col.name === 'is_public');
   if (!hasIsPublic) {

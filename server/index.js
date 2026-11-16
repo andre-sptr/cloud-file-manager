@@ -42,14 +42,17 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "blob:"],
-      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://accounts.google.com/gsi/style"],
+      imgSrc: ["'self'", "data:", "blob:", "https://lh3.googleusercontent.com"],
+      scriptSrc: ["'self'", "https://accounts.google.com/gsi/client"],
+      connectSrc: ["'self'", "https://accounts.google.com/gsi/"],
+      frameSrc: ["'self'", "https://accounts.google.com/gsi/"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'", "blob:"],
       fontSrc: ["'self'"],
     },
   },
+  crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
   crossOriginEmbedderPolicy: false,
 }));
 
@@ -83,6 +86,7 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
+app.use('/api/auth/google', authLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/files', fileRoutes);
 app.use((_req, res) => {
